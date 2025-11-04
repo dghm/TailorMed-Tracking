@@ -339,7 +339,7 @@ html(lang="en")
         submitBtn.disabled = false;
       }
 
-      // 格式化 Last Update 為當地時間（格式：M/D/YYYY HH:MM）
+      // 格式化 Last Update 為台灣時間（格式：M/D/YYYY HH:MM）
       function formatLastUpdate(lastUpdate) {
         if (!lastUpdate) return '—';
         
@@ -347,12 +347,23 @@ html(lang="en")
           const date = new Date(lastUpdate);
           if (isNaN(date.getTime())) return lastUpdate; // 如果不是有效日期，返回原值
           
-          // 格式化為 M/D/YYYY HH:MM
-          const month = date.getMonth() + 1;
-          const day = date.getDate();
-          const year = date.getFullYear();
-          const hours = date.getHours().toString().padStart(2, '0');
-          const minutes = date.getMinutes().toString().padStart(2, '0');
+          // 使用 Intl.DateTimeFormat 格式化為台灣時區（UTC+8）
+          const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          });
+          
+          const parts = formatter.formatToParts(date);
+          const month = parts.find(p => p.type === 'month').value;
+          const day = parts.find(p => p.type === 'day').value;
+          const year = parts.find(p => p.type === 'year').value;
+          const hours = parts.find(p => p.type === 'hour').value;
+          const minutes = parts.find(p => p.type === 'minute').value;
           
           return `${month}/${day}/${year} ${hours}:${minutes}`;
         } catch (e) {

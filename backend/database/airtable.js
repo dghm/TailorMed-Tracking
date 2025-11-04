@@ -45,6 +45,71 @@ function initAirtable() {
 }
 
 /**
+ * 格式化日期為 YYYY-MM-DD（台灣時間 UTC+8）
+ * @param {Date|string} dateInput - 日期時間
+ * @returns {string} 格式化後的日期字符串
+ */
+function formatDateTaiwan(dateInput) {
+  if (!dateInput) return '';
+  
+  let date;
+  if (dateInput instanceof Date) {
+    date = new Date(dateInput);
+  } else {
+    date = new Date(dateInput);
+  }
+  
+  if (isNaN(date.getTime())) return '';
+  
+  // 使用 Intl.DateTimeFormat 格式化為台灣時區
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year').value;
+  const month = parts.find(p => p.type === 'month').value;
+  const day = parts.find(p => p.type === 'day').value;
+  
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * 格式化時間為 HH:MM（台灣時間 UTC+8）
+ * @param {Date|string} dateInput - 日期時間
+ * @returns {string} 格式化後的時間字符串
+ */
+function formatTimeTaiwan(dateInput) {
+  if (!dateInput) return '';
+  
+  let date;
+  if (dateInput instanceof Date) {
+    date = new Date(dateInput);
+  } else {
+    date = new Date(dateInput);
+  }
+  
+  if (isNaN(date.getTime())) return '';
+  
+  // 使用 Intl.DateTimeFormat 格式化為台灣時區
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const hours = parts.find(p => p.type === 'hour').value;
+  const minutes = parts.find(p => p.type === 'minute').value;
+  
+  return `${hours}:${minutes}`;
+}
+
+/**
  * 查詢貨件資料
  * @param {string} orderNo - Job No.
  * @param {string} trackingNo - Tracking No.
@@ -541,10 +606,8 @@ async function findTimeline(trackingNo, shipmentFields = null) {
 
           timeline.push({
             title: config.title,
-            date: hasDate ? date.toISOString().split('T')[0] : '',
-            time: hasDate
-              ? date.toTimeString().split(' ')[0].substring(0, 5)
-              : '',
+            date: hasDate ? formatDateTaiwan(date) : '',
+            time: hasDate ? formatTimeTaiwan(date) : '',
             status: isCompleted ? 'completed' : 'pending',
             isEvent: true,
             eventType: 'dryice',
@@ -559,10 +622,8 @@ async function findTimeline(trackingNo, shipmentFields = null) {
 
           timeline.push({
             title: config.title,
-            date: isCompleted ? date.toISOString().split('T')[0] : '',
-            time: isCompleted
-              ? date.toTimeString().split(' ')[0].substring(0, 5)
-              : '',
+            date: isCompleted ? formatDateTaiwan(date) : '',
+            time: isCompleted ? formatTimeTaiwan(date) : '',
             status: finalStatus,
             step: stepCounter++,
             isEvent: false,
