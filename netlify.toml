@@ -14,6 +14,13 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Functions 打包設定
+[functions]
+  # 使用 esbuild 打包，確保所有依賴都被包含
+  node_bundler = "esbuild"
+  # 包含所有檔案（不只是函數檔案本身）
+  included_files = ["backend/netlify/functions/**"]
+
 # 環境變數（生產環境在 Netlify Dashboard 設定）
 # 本地開發時從 .env 檔案讀取（backend/.env）
 # Netlify dev 會自動讀取 backend/.env（如果存在）
