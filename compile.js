@@ -9,11 +9,8 @@ const TEMPLATE_DIR = path.join(FRONTEND_DIR, 'Templates');
 const STYLE_DIR = path.join(FRONTEND_DIR, 'Styles');
 const ASSETS_DIR = path.join(FRONTEND_DIR, 'Assets');
 const JS_SOURCE_DIR = path.join(FRONTEND_DIR, 'Javascript');
-// 編譯到專案根目錄的 dist/Projects/TailorMed/track
-const DIST_DIR = path.join(
-  ROOT_DIR,
-  '../../../../dist/Projects/TailorMed/track'
-);
+// 編譯到專案根目錄的 dist（track 作為獨立 repository）
+const DIST_DIR = path.join(ROOT_DIR, 'dist');
 // 源碼使用 Javascript（大寫），編譯後使用 js（小寫）
 const JS_DIST_DIR = path.join(DIST_DIR, 'js');
 
