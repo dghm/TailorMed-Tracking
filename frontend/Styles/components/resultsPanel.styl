@@ -36,6 +36,35 @@
     text-align center
     line-height 1.6
 
+    .results-message__illustration
+      display flex
+      justify-content center
+      align-items center
+      margin 60px
+      position relative
+
+      img
+        width 200px
+        height 200px
+        object-fit contain
+
+    .results-message__illustration--loading
+      .results-message__illustration-line
+        width 470px
+        height auto
+        margin-top 25px
+        object-fit contain
+
+      .results-message__illustration-car
+        position absolute
+        width 160px
+        height auto
+        left 50%
+        top 50%
+        transform translate(-50%, -50%)
+        animation truckBounce 2.2s ease-in-out infinite
+
+
   &.is-loading .results-container,
   &.is-error .results-container
     display none
@@ -51,7 +80,10 @@
     display none
 
   &.is-empty
-    .results-container,
+    .results-highlight
+      display none
+    .status-info
+      display none
     .timeline-content
       display none
 
@@ -103,6 +135,27 @@
 
       li
         margin-bottom 6px
+
+    &__visual
+      display flex
+      justify-content center
+      align-items center
+      margin-bottom 8px
+
+      .results-message__illustration
+        margin-bottom 0
+
+  .summary-placeholder--visual-only
+    align-items center
+    padding 40px 12px
+    background none
+    border none
+    text-align center
+
+    .summary-placeholder__note
+      margin-top 16px
+      font-size 0.95rem
+      color rgba(12, 48, 88, 0.6)
 
   .results-highlight
     flex 6
@@ -995,6 +1048,18 @@
     transform translate(-50%, -50%) translateY(-4px)
   100%
     transform translate(-50%, -50%) translateY(0)
+
+@keyframes truckBounce
+  0%
+    transform translate(-50%, -55%)
+  25%
+    transform translate(-50%, -60%)
+  50%
+    transform translate(-50%, -55%)
+  75%
+    transform translate(-50%, -60%)
+  100%
+    transform translate(-50%, -55%)
 
 @keyframes orderCompletionShine
   0%

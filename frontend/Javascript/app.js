@@ -70,14 +70,22 @@ function showResultsMessage(type, message) {
   }
 
   if (messageBox) {
-    const illustration =
-      type === 'error'
-        ? `
-          <div class="results-message__illustration">
-            <img src="images/noData.svg" alt="No data found illustration">
-          </div>
-        `
-        : '';
+    let illustration = '';
+
+    if (type === 'loading') {
+      illustration = `
+        <div class="results-message__illustration results-message__illustration--loading">
+          <img class="results-message__illustration-line" src="images/dataSearching-line.svg" alt="Tracking search animation line">
+          <img class="results-message__illustration-car" src="images/dataSearching-car.svg" alt="Tracking search animation car">
+        </div>
+      `;
+    } else if (type === 'error') {
+      illustration = `
+        <div class="results-message__illustration">
+          <img src="images/noData.svg" alt="No data found illustration">
+        </div>
+      `;
+    }
 
     messageBox.innerHTML = `
       ${illustration}
@@ -128,12 +136,34 @@ function clearResultsMessage() {
   resultsPanel.classList.remove('is-empty', 'is-hidden');
 }
 
+function scrollToResultsPanel(offset = 85) {
+  if (!resultsPanel) return;
+  const panelTop =
+    resultsPanel.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo({
+    top: panelTop < 0 ? 0 : panelTop,
+    behavior: 'smooth',
+  });
+}
+
 // 狀態訊息
 const STATUS_MESSAGES = {
   loading: '正在查詢貨件狀態，請稍候...',
   notFound: '查無此追蹤編號的記錄，請確認編號是否正確。',
-  error: '服務暫時無法使用，稍候再試或聯絡客服人員。'
+  error: '服務暫時無法使用，稍候再試或聯絡客服人員。',
+  timeout: '查詢逾時，請稍後再試。'
 };
+
+// 開發調試用：強制停留在載入畫面
+const FORCE_LOADING_PREVIEW = false;
+
+// Demo 用載入最短顯示時間（毫秒）
+const MIN_LOADING_TIME = 0;
+const MAX_QUERY_TIME = 3000;
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // 查詢貨件資料
 async function fetchTrackingData(orderNo, trackingNo) {
@@ -143,6 +173,13 @@ async function fetchTrackingData(orderNo, trackingNo) {
   const startTime = Date.now();
   
   try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timeoutId = null;
+
+    if (controller) {
+      timeoutId = setTimeout(() => controller.abort(), MAX_QUERY_TIME);
+    }
+
     // 使用 POST 方法呼叫 API（Netlify Functions 支援 POST）
     const response = await fetch(`${API_BASE_URL}/tracking`, {
       method: 'POST',
@@ -152,8 +189,13 @@ async function fetchTrackingData(orderNo, trackingNo) {
       body: JSON.stringify({
         orderNo: orderNo,
         trackingNo: trackingNo
-      })
+      }),
+      signal: controller?.signal
     });
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -200,13 +242,25 @@ async function fetchTrackingData(orderNo, trackingNo) {
     
     return result;
   } catch (error) {
+    const responseTime = Date.now() - startTime;
+    if (error.name === 'AbortError') {
+      trackUsage('query_result', {
+        orderNo,
+        trackingNo,
+        success: false,
+        reason: 'timeout',
+        responseTime
+      });
+      return { error: 'timeout', message: STATUS_MESSAGES.timeout };
+    }
+
     // 追蹤查詢結果（錯誤）
     trackUsage('query_result', { 
       orderNo, 
       trackingNo, 
       success: false, 
       reason: 'error',
-      responseTime: Date.now() - startTime,
+      responseTime,
       error: error.message
     });
     
@@ -421,9 +475,12 @@ async function handleFormSubmit(event) {
 
   // 顯示載入狀態
   showLoading();
+  scrollToResultsPanel();
 
-  // 查詢資料
-  const result = await fetchTrackingData(orderNo, trackingNo);
+  const [result] = await Promise.all([
+    fetchTrackingData(orderNo, trackingNo),
+    wait(MIN_LOADING_TIME)
+  ]);
 
   // 處理結果
   if (result === 'error') {
@@ -434,6 +491,11 @@ async function handleFormSubmit(event) {
   // 處理查詢次數限制
   if (result && result.error === 'rate_limit') {
     showResultsMessage('error', result.message || STATUS_MESSAGES.error);
+    return;
+  }
+
+  if (result && result.error === 'timeout') {
+    showResultsMessage('error', result.message || STATUS_MESSAGES.timeout);
     return;
   }
 
@@ -455,14 +517,7 @@ async function handleFormSubmit(event) {
   window.history.pushState({}, '', url);
 
   // 滾動到結果區域（額外保留 75px 空間）
-  if (resultsPanel) {
-    const panelTop =
-      resultsPanel.getBoundingClientRect().top + window.pageYOffset - 85;
-    window.scrollTo({
-      top: panelTop < 0 ? 0 : panelTop,
-      behavior: 'smooth',
-    });
-  }
+  scrollToResultsPanel();
 }
 
 // 從 URL 參數初始化

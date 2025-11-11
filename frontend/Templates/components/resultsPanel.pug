@@ -6,15 +6,10 @@
   .results-container
     .results-highlight
       .summary-grid
-        .summary-placeholder
-          h3.summary-placeholder__title Ready to track a shipment?
-          p.summary-placeholder__text Enter your Job No. and Tracking No. above, then press
-            span.summary-placeholder__accent STATUS CHECK
-            |  to load the latest shipment updates.
-          ul.summary-placeholder__list
-            li Use uppercase letters and numbers only (e.g. TM111695 / X73K1UN6).
-            li Both fields are required to start the lookup.
-            li The results panel will update immediately after a successful query.
+        .summary-placeholder.summary-placeholder--visual-only
+          .results-message__illustration
+            img(src="./images/noData.svg", alt="No data illustration")
+          p.summary-placeholder__note 查無此追蹤編號的記錄，請確認編號是否正確。
 
     .status-info
       .status-placeholder
