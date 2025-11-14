@@ -138,6 +138,8 @@
       resultsNote.style.display = 'none';
     }
 
+    updateApiDebugPanel(null);
+
     if (description && type !== 'success') {
       description.textContent = message;
     }
@@ -175,6 +177,22 @@
     }
 
     resultsPanel.classList.remove('is-empty', 'is-hidden');
+  }
+
+  function updateApiDebugPanel(data) {
+    if (!resultsPanel) return;
+    const panel = resultsPanel.querySelector('.api-debug-panel');
+    const body = panel?.querySelector('.api-debug-panel__body');
+    if (!panel || !body) return;
+
+    if (!data) {
+      panel.classList.add('is-hidden');
+      body.textContent = 'No data loaded yet.';
+      return;
+    }
+
+    panel.classList.remove('is-hidden');
+    body.textContent = JSON.stringify(data, null, 2);
   }
 
   function scrollToResultsPanel(offset = 85) {
@@ -655,6 +673,16 @@
     };
   }
 
+  function normalizeStatus(step) {
+    if (!step || typeof step.status !== 'string') return '';
+    return step.status.trim().toLowerCase();
+  }
+
+  function normalizeTitle(step) {
+    if (!step || typeof step.title !== 'string') return '';
+    return step.title.trim().toLowerCase();
+  }
+
   function deriveTimelineStatusCode(step, index, steps, options) {
     const {
       isDomestic,
@@ -664,6 +692,8 @@
       lastCompletedIndex,
     } = options;
     const lastIndex = steps.length - 1;
+    const normalizedStatus = normalizeStatus(step);
+    const normalizedTitle = normalizeTitle(step);
 
     if (isOrderCompleted) {
       return index === lastIndex
@@ -676,7 +706,11 @@
         return TIMELINE_STATUS_CODES.EXECUTED;
       }
       if (index === processingIndex) {
-        if (isInternational && step.title && /in\s*transit/i.test(step.title)) {
+        if (
+          isInternational &&
+          normalizedTitle &&
+          normalizedTitle.includes('in transit')
+        ) {
           return TIMELINE_STATUS_CODES.INTERNATIONAL_IN_TRANSIT;
         }
         return TIMELINE_STATUS_CODES.PROCESSING;
@@ -684,12 +718,16 @@
       return TIMELINE_STATUS_CODES.SCHEDULED;
     }
 
-    if (step.status === 'completed') {
+    if (normalizedStatus === 'completed') {
       return TIMELINE_STATUS_CODES.EXECUTED;
     }
 
-    if (step.status === 'processing') {
-      if (isInternational && step.title && /in\s*transit/i.test(step.title)) {
+    if (normalizedStatus === 'processing') {
+      if (
+        isInternational &&
+        normalizedTitle &&
+        normalizedTitle.includes('in transit')
+      ) {
         return TIMELINE_STATUS_CODES.INTERNATIONAL_IN_TRANSIT;
       }
       return TIMELINE_STATUS_CODES.PROCESSING;
@@ -736,16 +774,17 @@
       return;
     }
 
-    const isOrderCompleted = stepItems.every(
-      (step) => step.isOrderCompleted === true
-    );
+    const isOrderCompleted = stepItems.every((step) => {
+      if (step.isOrderCompleted === true) return true;
+      return normalizeStatus(step) === 'completed';
+    });
 
     const processingIndex = stepItems.findIndex(
-      (step) => step.status === 'processing'
+      (step) => normalizeStatus(step) === 'processing'
     );
     let lastCompletedIndex = -1;
     stepItems.forEach((step, idx) => {
-      if (step.status === 'completed') {
+      if (normalizeStatus(step) === 'completed') {
         lastCompletedIndex = idx;
       }
     });
@@ -954,6 +993,7 @@
         node.innerHTML = `
         <div class="node-date" data-month="${displayMonth}" data-day="${displayDay}">
           <span class="month">${displayMonth}</span>
+          <span class="separator"> </span>
           <span class="day">${displayDay}</span>
         </div>
         <div class="node-icon">
@@ -965,60 +1005,6 @@
         </div>
       `;
         timelineNodes.appendChild(node);
-      });
-    }
-
-    // 更新 timeline cards
-    let timelineCards = resultsPanel?.querySelector('.timeline-cards');
-    if (!timelineCards) {
-      timelineCards = document.createElement('div');
-      timelineCards.className = 'timeline-cards';
-      if (timelineVisual) {
-        timelineVisual.appendChild(timelineCards);
-      }
-    }
-    if (timelineCards) {
-      timelineCards.innerHTML = '';
-
-      processedSteps.forEach((item) => {
-        const card = document.createElement('div');
-
-        card.className = [
-          'timeline-card',
-          item.status || '',
-          `timeline-card--status-${item.statusCode}`,
-          `timeline-card--${item.statusClass}`,
-        ]
-          .filter(Boolean)
-          .join(' ');
-        if (item.step !== undefined) {
-          card.setAttribute('data-step', item.step);
-        }
-        card.setAttribute('data-status-code', String(item.statusCode));
-        const displayCardTime = item.time || '';
-        card.innerHTML = `
-        <div class="card-step">Step ${item.step ?? ''}</div>
-        <div class="card-content">
-          <h3 class="card-title">${item.title || ''}</h3>
-          <p class="card-time">${displayCardTime}</p>
-        </div>
-      `;
-
-        timelineCards.appendChild(card);
-      });
-
-      // 事件卡片（如 Dry Ice）
-      filteredEventItems.forEach((eventItem) => {
-        const card = document.createElement('div');
-        card.className = 'timeline-card event';
-        card.innerHTML = `
-        <div class="card-step">Event</div>
-        <div class="card-content">
-          <h3 class="card-title">${eventItem.title || ''}</h3>
-          <p class="card-time">${eventItem.time || ''}</p>
-        </div>
-      `;
-        timelineCards.appendChild(card);
       });
     }
 
@@ -1123,6 +1109,7 @@
     // 渲染資料
     renderShipmentInfo(result);
     renderTimeline(result);
+    updateApiDebugPanel(result);
 
     // 更新 URL (不刷新頁面)
     const url = new URL(window.location);

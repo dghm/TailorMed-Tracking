@@ -20,11 +20,15 @@
     p.timeline-description Track your shipment through each milestone
     .timeline-placeholder
       p.timeline-placeholder__text Timeline events will populate automatically once a shipment is found.
-    //- Timeline Visual 組件已獨立到 timelineVisual.pug，方便 JS 動態渲染
-    //- include timelineVisual.pug
-    //- Timeline Icon Legend 組件已獨立到 timelineIconLegend.pug，方便 JS 動態渲染
-    //- include timelineIconLegend.pug
+    .timeline-visual
+      .timeline-track
+      .timeline-connector
+      .timeline-nodes-container
+      .timeline-events
   p.results-note This information is NOT updated in real-time. For the most current status, please refresh this page or contact our customer service team.
+  .api-debug-panel.is-hidden
+    h4.api-debug-panel__title API Response Preview
+    pre.api-debug-panel__body No data loaded yet.
   button.btn.btn--primary.results-mobile-cta(type="button")
     span.btn-text TRACKING ANOTHER SHIPMENT
 
