@@ -1264,6 +1264,16 @@
         feedbackSection.classList.add('is-hidden');
       }
     }
+
+    // 隱藏 results-note（當訂單完成時，即 Shipment Delivered 已完成）
+    const resultsNote = resultsPanel?.querySelector('.results-note');
+    if (resultsNote) {
+      if (isOrderCompleted) {
+        resultsNote.classList.add('is-hidden');
+      } else {
+        resultsNote.classList.remove('is-hidden');
+      }
+    }
   }
 
   // 顯示載入狀態
