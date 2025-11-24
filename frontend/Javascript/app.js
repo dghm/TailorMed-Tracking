@@ -6,7 +6,16 @@
     window.CONFIG?.API_BASE_URL || 'http://localhost:3000/api';
 
   // 使用追蹤功能（最小影響）
+  // 注意：此功能需要後端有對應的 /api/usage endpoint
+  // 如果沒有 usage function，此函數不會執行以避免 console 錯誤
   function trackUsage(action, data) {
+    // 只在開發環境或本地環境執行（避免生產環境的 404 錯誤）
+    const isLocalDev = API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1');
+    if (!isLocalDev) {
+      // 生產環境不執行追蹤，避免 404 錯誤
+      return;
+    }
+    
     try {
       // 非阻塞式追蹤，不影響主要功能
       setTimeout(() => {
