@@ -467,20 +467,30 @@
     const etaFormatted = formatDateToDDMMYYYY(shipmentData.eta);
 
     // 更新基本資訊
+    // Original/Destination 直接顯示資料庫中的值
+    const originalDestinationValue = (() => {
+      // 優先使用 originDestination 欄位（資料庫中的 Origin/Destination）
+      if (
+        shipmentData.originDestination &&
+        shipmentData.originDestination.trim()
+      ) {
+        return shipmentData.originDestination;
+      }
+      // 如果沒有，則組合 origin 和 destination
+      if (shipmentData.origin && shipmentData.destination) {
+        return `${shipmentData.origin} → ${shipmentData.destination}`;
+      }
+      // 如果都沒有，則使用 route
+      if (shipmentData.route && shipmentData.route.trim()) {
+        return shipmentData.route;
+      }
+      // 都沒有則顯示 "—"
+      return '—';
+    })();
+
     const summaryFields = {
       'Job No.': shipmentData.orderNo || '—',
-      'Original/Destination': (() => {
-        if (
-          shipmentData.originDestination &&
-          shipmentData.originDestination.trim()
-        ) {
-          return shipmentData.originDestination;
-        }
-        if (shipmentData.origin && shipmentData.destination) {
-          return `${shipmentData.origin} → ${shipmentData.destination}`;
-        }
-        return shipmentData.route || '—';
-      })(),
+      'Original/Destination': originalDestinationValue,
       Origin: 'hidden',
       Destination: 'hidden',
       'Package Count': shipmentData.packageCount || '—',

@@ -367,6 +367,7 @@ exports.handler = async (event, context) => {
               status: shipment.status || 'pending',
               origin: shipment.origin || '',
               destination: shipment.destination || '',
+              originDestination: shipment.originDestination || '', // 包含 Origin/Destination 欄位（直接顯示資料庫中的值）
               packageCount: shipment.packageCount || 1,
               weight: shipment.weight || '',
               eta: shipment.eta || '',
