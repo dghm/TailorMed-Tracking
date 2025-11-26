@@ -1,0 +1,129 @@
+doctype html
+html(lang="zh-TW")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1")
+    title API Dashboard | TailorMed Tracking System
+    link(rel="icon", type="image/svg+xml", href="./images/tailormed-mark.svg")
+    link(rel="preconnect", href="https://fonts.googleapis.com")
+    link(rel="preconnect", href="https://fonts.gstatic.com", crossorigin)
+    link(href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap", rel="stylesheet")
+    link(rel="stylesheet", href="./css/main.css")
+    link(rel="stylesheet", href="./css/components/dashboard.css")
+    script(src="./js/config.js")
+    script(src="./js/apiMonitor.js")
+    script(src="./js/dashboard.js", defer)
+  body
+    header.site-header
+      .container
+        .brand
+          img.brand-logo(src="./images/logo.png", alt="TailorMed")
+          img.brand-logo.brand-logo--mobile(src="./images/TM-Logo-Square.png", alt="TailorMed")
+        .header-actions
+          a.header-btn(href="/") Back to Tracking
+
+    section.dashboard-section
+      .container
+        h1.dashboard-title API Monitoring Dashboard
+        
+        // 統計卡片
+        .dashboard-stats
+          .stat-card
+            .stat-card__icon
+              svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
+                path(d="M13 2L3 14h9l-1 8 10-12h-9l1-8z")
+            .stat-card__content
+              .stat-card__value#totalRequests 0
+              .stat-card__label Total Requests
+          
+          .stat-card
+            .stat-card__icon
+              svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
+                path(d="M22 11.08V12a10 10 0 1 1-5.93-9.14")
+                polyline(points="22 4 12 14.01 9 11.01")
+            .stat-card__content
+              .stat-card__value#successRequests 0
+              .stat-card__label Success Rate
+          
+          .stat-card
+            .stat-card__icon
+              svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
+                circle(cx="12", cy="12", r="10")
+                line(x1="12", y1="8", x2="12", y2="12")
+                line(x1="12", y1="16", x2="12.01", y2="16")
+            .stat-card__content
+              .stat-card__value#errorRequests 0
+              .stat-card__label Error Rate
+          
+          .stat-card
+            .stat-card__icon
+              svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
+                circle(cx="12", cy="12", r="10")
+                polyline(points="12 6 12 12 16 14")
+            .stat-card__content
+              .stat-card__value#avgResponseTime —
+              .stat-card__label Avg Response Time
+
+        // 過濾器
+        .dashboard-filters
+          .filter-group
+            label.filter-label Date Range:
+            select#dateRange.filter-select
+              option(value="today") Today
+              option(value="week") Last 7 Days
+              option(value="month") Last 30 Days
+              option(value="all") All Time
+          
+          .filter-group
+            label.filter-label Status:
+            select#statusFilter.filter-select
+              option(value="all") All
+              option(value="success") Success
+              option(value="error") Error
+
+        // API 請求列表
+        .dashboard-content
+          .dashboard-panel
+            .dashboard-panel__header
+              h2.dashboard-panel__title API Request Logs
+              button.btn.btn--secondary#refreshBtn Refresh
+            .dashboard-panel__body
+              .dashboard-table-container
+                table.dashboard-table
+                  thead
+                    tr
+                      th Time
+                      th Method
+                      th Endpoint
+                      th Status
+                      th Response Time
+                      th Details
+                  tbody#requestLogs
+                    tr.dashboard-table__empty
+                      td(colspan="6") No requests logged yet. Start making API calls to see them here.
+
+          .dashboard-panel
+            .dashboard-panel__header
+              h2.dashboard-panel__title Error Logs
+            .dashboard-panel__body
+              .dashboard-table-container
+                table.dashboard-table
+                  thead
+                    tr
+                      th Time
+                      th Endpoint
+                      th Error Message
+                      th Details
+                  tbody#errorLogs
+                    tr.dashboard-table__empty
+                      td(colspan="4") No errors logged yet.
+
+        // 圖表區域（可選）
+        .dashboard-charts
+          .dashboard-panel
+            .dashboard-panel__header
+              h2.dashboard-panel__title Request Statistics
+            .dashboard-panel__body
+              .chart-container
+                canvas#requestChart
+
