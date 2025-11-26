@@ -72,6 +72,37 @@
     margin-bottom 0.5rem
     position relative
 
+  &--wide
+    grid-column span 2
+
+    @media (max-width: 768px)
+      grid-column span 1
+
+  &__bar-container
+    width 100%
+    position relative
+    margin-bottom 0.5rem
+    
+    canvas
+      height 20px !important
+      border-radius 10px
+
+  &__bar-labels
+    display flex
+    justify-content space-between
+    width 100%
+    margin-bottom 0.5rem
+    font-size 0.9rem
+    font-weight 600
+    color #333
+    position relative
+
+  &__bar-label--left
+    text-align left
+
+  &__bar-label--right
+    text-align right
+
   &__label
     font-size 0.9rem
     color neutral-gray

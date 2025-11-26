@@ -37,26 +37,18 @@ html(lang="zh-TW")
               .stat-card__value#totalRequests 0
               .stat-card__label Total Requests
           
-          .stat-card
+          .stat-card.stat-card--wide
             .stat-card__icon
               svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
                 path(d="M22 11.08V12a10 10 0 1 1-5.93-9.14")
                 polyline(points="22 4 12 14.01 9 11.01")
             .stat-card__content
-              .stat-card__chart-container
-                canvas#successChart
-              .stat-card__label Success Rate
-          
-          .stat-card
-            .stat-card__icon
-              svg(width="24", height="24", viewBox="0 0 24 24", fill="none", stroke="currentColor", stroke-width="2")
-                circle(cx="12", cy="12", r="10")
-                line(x1="12", y1="8", x2="12", y2="12")
-                line(x1="12", y1="16", x2="12.01", y2="16")
-            .stat-card__content
-              .stat-card__chart-container
-                canvas#errorChart
-              .stat-card__label Error Rate
+              .stat-card__bar-container
+                .stat-card__bar-labels
+                  span.stat-card__bar-label--left#successPercentage 0%
+                  span.stat-card__bar-label--right#errorPercentage 0%
+                canvas#successErrorBarChart
+              .stat-card__label Success / Error Rate
           
           .stat-card
             .stat-card__icon

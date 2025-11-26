@@ -8,8 +8,7 @@
 
   let requestLogs = [];
   let filteredLogs = [];
-  let successChart = null;
-  let errorChart = null;
+  let successErrorBarChart = null;
   let currentRequestPage = 1;
   let currentErrorPage = 1;
   const ITEMS_PER_PAGE = 10;
@@ -39,117 +38,56 @@
 
   // 初始化圖表
   function initCharts() {
-    // 自定義插件：在 Donut 中心顯示百分比
-    const centerTextPlugin = {
-      id: 'centerText',
-      afterDraw: function (chart) {
-        const ctx = chart.ctx;
-        const chartArea = chart.chartArea;
-        const centerX = (chartArea.left + chartArea.right) / 2;
-        const centerY = (chartArea.top + chartArea.bottom) / 2;
+    // 橫式長條圖：Success/Error 比例
+    const barCtx = document.getElementById('successErrorBarChart');
+    if (barCtx && typeof Chart !== 'undefined') {
+      // 設定 canvas 高度
+      barCtx.style.height = '20px';
 
-        const data = chart.data.datasets[0].data;
-        const total = data.reduce((a, b) => a + b, 0);
-
-        // 計算百分比（Success Chart 顯示成功率，Error Chart 顯示錯誤率）
-        let percentage = 0;
-        if (chart.canvas.id === 'successChart') {
-          const success = data[0] || 0;
-          percentage = total > 0 ? ((success / total) * 100).toFixed(1) : 0;
-        } else if (chart.canvas.id === 'errorChart') {
-          const error = data[0] || 0;
-          percentage = total > 0 ? ((error / total) * 100).toFixed(1) : 0;
-        }
-
-        ctx.save();
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = 'bold 24px "Noto Sans", sans-serif';
-        ctx.fillStyle = '#333';
-        ctx.fillText(`${percentage}%`, centerX, centerY);
-        ctx.restore();
-      },
-    };
-
-    // Success Chart
-    const successCtx = document.getElementById('successChart');
-    if (successCtx && typeof Chart !== 'undefined') {
-      successChart = new Chart(successCtx, {
-        type: 'doughnut',
+      successErrorBarChart = new Chart(barCtx, {
+        type: 'bar',
         data: {
-          labels: ['Success', 'Error'],
+          labels: [''],
           datasets: [
             {
-              data: [0, 0],
-              backgroundColor: ['#143463', '#ccc'],
+              label: 'Success',
+              data: [0],
+              backgroundColor: '#143463',
+              borderWidth: 0,
+            },
+            {
+              label: 'Error',
+              data: [0],
+              backgroundColor: '#ccc',
               borderWidth: 0,
             },
           ],
         },
         options: {
+          indexAxis: 'y', // 橫式顯示
           responsive: true,
-          maintainAspectRatio: true,
-          cutout: '60%', // 創建 Donut 效果
+          maintainAspectRatio: false,
           plugins: {
             legend: {
               display: false,
             },
             tooltip: {
-              callbacks: {
-                label: function (context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage =
-                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                  return `${label}: ${value} (${percentage}%)`;
-                },
-              },
+              enabled: false,
             },
           },
-        },
-        plugins: [centerTextPlugin],
-      });
-    }
-
-    // Error Chart
-    const errorCtx = document.getElementById('errorChart');
-    if (errorCtx && typeof Chart !== 'undefined') {
-      errorChart = new Chart(errorCtx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Error', 'Success'],
-          datasets: [
-            {
-              data: [0, 0],
-              backgroundColor: ['#143463', '#ccc'],
-              borderWidth: 0,
+          scales: {
+            x: {
+              stacked: true,
+              display: false,
+              max: 100,
+              min: 0,
             },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          cutout: '60%', // 創建 Donut 效果
-          plugins: {
-            legend: {
+            y: {
+              stacked: true,
               display: false,
             },
-            tooltip: {
-              callbacks: {
-                label: function (context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage =
-                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                  return `${label}: ${value} (${percentage}%)`;
-                },
-              },
-            },
           },
         },
-        plugins: [centerTextPlugin],
       });
     }
   }
@@ -238,6 +176,25 @@
     const success = trackingRequests.filter((r) => r.success).length;
     const errors = trackingRequests.filter((r) => !r.success).length;
 
+    // 計算今日查詢數
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const todayRequests = trackingRequests.filter((r) => {
+      const logDate = new Date(r.timestamp);
+      return logDate >= todayStart;
+    }).length;
+
+    // 計算本月（日曆月）總數
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthRequests = trackingRequests.filter((r) => {
+      const logDate = new Date(r.timestamp);
+      return logDate >= monthStart;
+    }).length;
+
     // 計算成功率
     const successRate = total > 0 ? ((success / total) * 100).toFixed(1) : 0;
 
@@ -266,7 +223,9 @@
     const totalEl = document.getElementById('totalRequests');
     const avgTimeEl = document.getElementById('avgResponseTime');
 
-    if (totalEl) totalEl.textContent = total;
+    if (totalEl) {
+      totalEl.textContent = `${todayRequests} | ${monthRequests}`;
+    }
     if (avgTimeEl) {
       if (avgResponseTime > 0) {
         // 將毫秒轉換為秒，保留小數點後 2 位
@@ -277,16 +236,99 @@
       }
     }
 
-    // 更新 Success Pie Chart
-    if (successChart) {
-      successChart.data.datasets[0].data = [success, errors];
-      successChart.update('none'); // 'none' 模式不顯示動畫，提高性能
-    }
+    // 更新 Success/Error 橫式長條圖
+    const successPercentageEl = document.getElementById('successPercentage');
+    const errorPercentageEl = document.getElementById('errorPercentage');
+    const barLabelsContainer = document.querySelector('.stat-card__bar-labels');
 
-    // 更新 Error Pie Chart
-    if (errorChart) {
-      errorChart.data.datasets[0].data = [errors, success];
-      errorChart.update('none'); // 'none' 模式不顯示動畫，提高性能
+    if (successErrorBarChart) {
+      if (total === 0) {
+        // 沒有數據
+        successErrorBarChart.data.datasets[0].data = [0];
+        successErrorBarChart.data.datasets[1].data = [0];
+        if (successPercentageEl) {
+          successPercentageEl.textContent = '0%';
+          successPercentageEl.style.textAlign = 'left';
+          successPercentageEl.style.width = 'auto';
+        }
+        if (errorPercentageEl) {
+          errorPercentageEl.textContent = '0%';
+          errorPercentageEl.style.textAlign = 'right';
+          errorPercentageEl.style.width = 'auto';
+        }
+        if (barLabelsContainer) {
+          barLabelsContainer.style.justifyContent = 'space-between';
+        }
+      } else if (total === 1) {
+        // 只有一筆數據
+        if (success === 1) {
+          // 100% 成功
+          successErrorBarChart.data.datasets[0].data = [100];
+          successErrorBarChart.data.datasets[1].data = [0];
+          if (successPercentageEl) {
+            successPercentageEl.textContent = '100% 成功';
+            successPercentageEl.style.textAlign = 'center';
+            successPercentageEl.style.width = '100%';
+            successPercentageEl.style.position = 'absolute';
+            successPercentageEl.style.left = '50%';
+            successPercentageEl.style.transform = 'translateX(-50%)';
+          }
+          if (errorPercentageEl) {
+            errorPercentageEl.textContent = '';
+            errorPercentageEl.style.width = 'auto';
+          }
+          if (barLabelsContainer) {
+            barLabelsContainer.style.justifyContent = 'center';
+          }
+        } else {
+          // 100% 失敗
+          successErrorBarChart.data.datasets[0].data = [0];
+          successErrorBarChart.data.datasets[1].data = [100];
+          if (successPercentageEl) {
+            successPercentageEl.textContent = '';
+            successPercentageEl.style.width = 'auto';
+          }
+          if (errorPercentageEl) {
+            errorPercentageEl.textContent = '100% 失敗';
+            errorPercentageEl.style.textAlign = 'center';
+            errorPercentageEl.style.width = '100%';
+            errorPercentageEl.style.position = 'absolute';
+            errorPercentageEl.style.left = '50%';
+            errorPercentageEl.style.transform = 'translateX(-50%)';
+          }
+          if (barLabelsContainer) {
+            barLabelsContainer.style.justifyContent = 'center';
+          }
+        }
+      } else {
+        // 多筆數據，顯示比例
+        const successPercent = ((success / total) * 100).toFixed(1);
+        const errorPercent = ((errors / total) * 100).toFixed(1);
+
+        successErrorBarChart.data.datasets[0].data = [
+          parseFloat(successPercent),
+        ];
+        successErrorBarChart.data.datasets[1].data = [parseFloat(errorPercent)];
+
+        if (successPercentageEl) {
+          successPercentageEl.textContent = `${successPercent}%`;
+          successPercentageEl.style.textAlign = 'left';
+          successPercentageEl.style.width = 'auto';
+          successPercentageEl.style.position = 'static';
+          successPercentageEl.style.transform = 'none';
+        }
+        if (errorPercentageEl) {
+          errorPercentageEl.textContent = `${errorPercent}%`;
+          errorPercentageEl.style.textAlign = 'right';
+          errorPercentageEl.style.width = 'auto';
+          errorPercentageEl.style.position = 'static';
+          errorPercentageEl.style.transform = 'none';
+        }
+        if (barLabelsContainer) {
+          barLabelsContainer.style.justifyContent = 'space-between';
+        }
+      }
+      successErrorBarChart.update('none');
     }
   }
 
@@ -570,13 +612,23 @@
         renderErrorLogs();
 
         // 重置圖表
-        if (successChart) {
-          successChart.data.datasets[0].data = [0, 0];
-          successChart.update('none');
+        if (successErrorBarChart) {
+          successErrorBarChart.data.datasets[0].data = [0];
+          successErrorBarChart.data.datasets[1].data = [0];
+          successErrorBarChart.update('none');
         }
-        if (errorChart) {
-          errorChart.data.datasets[0].data = [0, 0];
-          errorChart.update('none');
+        const successPercentageEl =
+          document.getElementById('successPercentage');
+        const errorPercentageEl = document.getElementById('errorPercentage');
+        if (successPercentageEl) {
+          successPercentageEl.textContent = '0%';
+          successPercentageEl.style.textAlign = 'left';
+          successPercentageEl.style.width = 'auto';
+        }
+        if (errorPercentageEl) {
+          errorPercentageEl.textContent = '0%';
+          errorPercentageEl.style.textAlign = 'right';
+          errorPercentageEl.style.width = 'auto';
         }
 
         console.log('✅ All monitoring data cleared');
