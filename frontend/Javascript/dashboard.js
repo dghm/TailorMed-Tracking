@@ -10,6 +10,9 @@
   let filteredLogs = [];
   let successChart = null;
   let errorChart = null;
+  let currentRequestPage = 1;
+  let currentErrorPage = 1;
+  const ITEMS_PER_PAGE = 10;
 
   // 格式化時間為 YYYY/MM/DD HH:MM:SS
   function formatTime(timestamp) {
@@ -176,10 +179,50 @@
   // 不需要攔截 fetch（已經在 apiMonitor.js 中處理）
   function startMonitoring() {
     // 監控功能已經在 apiMonitor.js 中實現
-    // 這裡只需要定期刷新數據
+    // 這裡只需要定期刷新數據（不重置頁碼）
     setInterval(() => {
       loadLogs();
-      applyFilters();
+      // 只更新過濾後的數據，不重置頁碼
+      const dateRange = document.getElementById('dateRange').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+
+      // 只過濾 tracking API 請求
+      const trackingLogs = requestLogs.filter(
+        (log) =>
+          log.url &&
+          (log.url.includes('/tracking') || log.url.includes('tracking'))
+      );
+
+      filteredLogs = trackingLogs.filter((log) => {
+        // 日期過濾
+        const logDate = new Date(log.timestamp);
+        const now = new Date();
+        let dateMatch = true;
+
+        if (dateRange === 'today') {
+          dateMatch = logDate.toDateString() === now.toDateString();
+        } else if (dateRange === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          dateMatch = logDate >= weekAgo;
+        } else if (dateRange === 'month') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          dateMatch = logDate >= monthAgo;
+        }
+
+        // 狀態過濾
+        let statusMatch = true;
+        if (statusFilter === 'success') {
+          statusMatch = log.success;
+        } else if (statusFilter === 'error') {
+          statusMatch = !log.success;
+        }
+
+        return dateMatch && statusMatch;
+      });
+
+      renderStats();
+      renderRequestLogs();
+      renderErrorLogs();
     }, 2000); // 每 2 秒刷新一次
   }
 
@@ -198,8 +241,8 @@
     // 計算成功率
     const successRate = total > 0 ? ((success / total) * 100).toFixed(1) : 0;
 
-    // 計算平均回應時間（只計算成功的請求）
-    const successfulRequests = trackingRequests.filter((r) => r.success);
+    // 計算平均回應時間（只計算狀態碼 200 的成功請求）
+    const successfulRequests = trackingRequests.filter((r) => r.status === 200);
     const avgResponseTime =
       successfulRequests.length > 0
         ? Math.round(
@@ -210,7 +253,7 @@
           )
         : 0;
 
-    // 計算最快和最慢的回應時間
+    // 計算最快和最慢的回應時間（只計算狀態碼 200 的請求）
     const responseTimes = successfulRequests
       .map((r) => r.responseTime || 0)
       .filter((t) => t > 0);
@@ -226,10 +269,9 @@
     if (totalEl) totalEl.textContent = total;
     if (avgTimeEl) {
       if (avgResponseTime > 0) {
-        avgTimeEl.textContent = `${avgResponseTime}ms`;
-        if (minResponseTime > 0 && maxResponseTime > 0) {
-          avgTimeEl.textContent += ` (${minResponseTime}-${maxResponseTime}ms)`;
-        }
+        // 將毫秒轉換為秒，保留小數點後 2 位
+        const avgSeconds = (avgResponseTime / 1000).toFixed(2);
+        avgTimeEl.textContent = `${avgSeconds}s`;
       } else {
         avgTimeEl.textContent = '—';
       }
@@ -287,6 +329,10 @@
       return dateMatch && statusMatch;
     });
 
+    // 重置分頁
+    currentRequestPage = 1;
+    currentErrorPage = 1;
+
     renderStats();
     renderRequestLogs();
     renderErrorLogs();
@@ -295,19 +341,31 @@
   // 渲染請求日誌
   function renderRequestLogs() {
     const tbody = document.getElementById('requestLogs');
+    const pagination = document.getElementById('requestLogsPagination');
     if (!tbody) return;
 
     if (filteredLogs.length === 0) {
       tbody.innerHTML =
         '<tr class="dashboard-table__empty"><td colspan="7">No requests found.</td></tr>';
+      if (pagination) pagination.innerHTML = '';
       return;
     }
 
     // 顯示最新的記錄在前
     const sortedLogs = [...filteredLogs].reverse();
+    const totalPages = Math.ceil(sortedLogs.length / ITEMS_PER_PAGE);
 
-    tbody.innerHTML = sortedLogs
-      .slice(0, 100) // 最多顯示 100 條
+    // 確保當前頁碼不超過總頁數
+    if (currentRequestPage > totalPages && totalPages > 0) {
+      currentRequestPage = totalPages;
+    }
+
+    // 計算當前頁的數據範圍
+    const startIndex = (currentRequestPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const pageLogs = sortedLogs.slice(startIndex, endIndex);
+
+    tbody.innerHTML = pageLogs
       .map((log, index) => {
         const time = formatTime(log.timestamp);
         const statusClass = log.success ? 'status-success' : 'status-error';
@@ -336,11 +394,15 @@
         `;
       })
       .join('');
+
+    // 渲染分頁
+    renderPagination(pagination, currentRequestPage, totalPages, 'request');
   }
 
   // 渲染錯誤日誌
   function renderErrorLogs() {
     const tbody = document.getElementById('errorLogs');
+    const pagination = document.getElementById('errorLogsPagination');
     if (!tbody) return;
 
     const errors = filteredLogs.filter((log) => !log.success);
@@ -348,13 +410,24 @@
     if (errors.length === 0) {
       tbody.innerHTML =
         '<tr class="dashboard-table__empty"><td colspan="5">No errors found.</td></tr>';
+      if (pagination) pagination.innerHTML = '';
       return;
     }
 
     const sortedErrors = [...errors].reverse();
+    const totalPages = Math.ceil(sortedErrors.length / ITEMS_PER_PAGE);
 
-    tbody.innerHTML = sortedErrors
-      .slice(0, 50) // 最多顯示 50 條錯誤
+    // 確保當前頁碼不超過總頁數
+    if (currentErrorPage > totalPages && totalPages > 0) {
+      currentErrorPage = totalPages;
+    }
+
+    // 計算當前頁的數據範圍
+    const startIndex = (currentErrorPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const pageErrors = sortedErrors.slice(startIndex, endIndex);
+
+    tbody.innerHTML = pageErrors
       .map((log) => {
         const time = formatTime(log.timestamp);
         const orderNo = log.orderNo || '—';
@@ -375,7 +448,76 @@
         `;
       })
       .join('');
+
+    // 渲染分頁
+    renderPagination(pagination, currentErrorPage, totalPages, 'error');
   }
+
+  // 渲染分頁控制
+  function renderPagination(container, currentPage, totalPages, type) {
+    if (!container) return;
+
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let paginationHTML = '<div class="pagination">';
+
+    // 上一頁按鈕
+    const prevDisabled = currentPage === 1 ? 'disabled' : '';
+    paginationHTML += `<button class="pagination-btn ${prevDisabled}" onclick="goToPage('${type}', ${
+      currentPage - 1
+    })" ${prevDisabled ? 'disabled' : ''}>Previous</button>`;
+
+    // 頁碼按鈕
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+      paginationHTML += `<button class="pagination-btn" onclick="goToPage('${type}', 1)">1</button>`;
+      if (startPage > 2) {
+        paginationHTML += '<span class="pagination-ellipsis">...</span>';
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      const activeClass = i === currentPage ? 'active' : '';
+      paginationHTML += `<button class="pagination-btn ${activeClass}" onclick="goToPage('${type}', ${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        paginationHTML += '<span class="pagination-ellipsis">...</span>';
+      }
+      paginationHTML += `<button class="pagination-btn" onclick="goToPage('${type}', ${totalPages})">${totalPages}</button>`;
+    }
+
+    // 下一頁按鈕
+    const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+    paginationHTML += `<button class="pagination-btn ${nextDisabled}" onclick="goToPage('${type}', ${
+      currentPage + 1
+    })" ${nextDisabled ? 'disabled' : ''}>Next</button>`;
+
+    paginationHTML += '</div>';
+    container.innerHTML = paginationHTML;
+  }
+
+  // 切換頁碼
+  window.goToPage = function (type, page) {
+    if (type === 'request') {
+      currentRequestPage = page;
+      renderRequestLogs();
+    } else if (type === 'error') {
+      currentErrorPage = page;
+      renderErrorLogs();
+    }
+  };
 
   // 顯示請求詳情
   window.showRequestDetails = function (index) {
@@ -417,6 +559,10 @@
         // 重置數據
         requestLogs = [];
         filteredLogs = [];
+
+        // 重置分頁
+        currentRequestPage = 1;
+        currentErrorPage = 1;
 
         // 重新渲染
         renderStats();
