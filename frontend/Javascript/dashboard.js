@@ -8,15 +8,147 @@
 
   let requestLogs = [];
   let filteredLogs = [];
+  let successChart = null;
+  let errorChart = null;
+
+  // 格式化時間為 YYYY/MM/DD HH:MM:SS
+  function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+  }
 
   // 初始化
   function init() {
     loadLogs();
+    initCharts();
     renderStats();
     renderRequestLogs();
     renderErrorLogs();
     setupEventListeners();
     startMonitoring();
+  }
+
+  // 初始化圖表
+  function initCharts() {
+    // 自定義插件：在 Donut 中心顯示百分比
+    const centerTextPlugin = {
+      id: 'centerText',
+      afterDraw: function (chart) {
+        const ctx = chart.ctx;
+        const chartArea = chart.chartArea;
+        const centerX = (chartArea.left + chartArea.right) / 2;
+        const centerY = (chartArea.top + chartArea.bottom) / 2;
+
+        const data = chart.data.datasets[0].data;
+        const total = data.reduce((a, b) => a + b, 0);
+
+        // 計算百分比（Success Chart 顯示成功率，Error Chart 顯示錯誤率）
+        let percentage = 0;
+        if (chart.canvas.id === 'successChart') {
+          const success = data[0] || 0;
+          percentage = total > 0 ? ((success / total) * 100).toFixed(1) : 0;
+        } else if (chart.canvas.id === 'errorChart') {
+          const error = data[0] || 0;
+          percentage = total > 0 ? ((error / total) * 100).toFixed(1) : 0;
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = 'bold 24px "Noto Sans", sans-serif';
+        ctx.fillStyle = '#333';
+        ctx.fillText(`${percentage}%`, centerX, centerY);
+        ctx.restore();
+      },
+    };
+
+    // Success Chart
+    const successCtx = document.getElementById('successChart');
+    if (successCtx && typeof Chart !== 'undefined') {
+      successChart = new Chart(successCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Success', 'Error'],
+          datasets: [
+            {
+              data: [0, 0],
+              backgroundColor: ['#143463', '#ccc'],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '60%', // 創建 Donut 效果
+          plugins: {
+            legend: {
+              display: false,
+            },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage =
+                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${value} (${percentage}%)`;
+                },
+              },
+            },
+          },
+        },
+        plugins: [centerTextPlugin],
+      });
+    }
+
+    // Error Chart
+    const errorCtx = document.getElementById('errorChart');
+    if (errorCtx && typeof Chart !== 'undefined') {
+      errorChart = new Chart(errorCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Error', 'Success'],
+          datasets: [
+            {
+              data: [0, 0],
+              backgroundColor: ['#143463', '#ccc'],
+              borderWidth: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '60%', // 創建 Donut 效果
+          plugins: {
+            legend: {
+              display: false,
+            },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage =
+                    total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return `${label}: ${value} (${percentage}%)`;
+                },
+              },
+            },
+          },
+        },
+        plugins: [centerTextPlugin],
+      });
+    }
   }
 
   // 從 localStorage 載入記錄（使用 apiMonitor 模組）
@@ -89,14 +221,9 @@
 
     // 更新統計卡片
     const totalEl = document.getElementById('totalRequests');
-    const successEl = document.getElementById('successRequests');
-    const errorEl = document.getElementById('errorRequests');
     const avgTimeEl = document.getElementById('avgResponseTime');
 
     if (totalEl) totalEl.textContent = total;
-    if (successEl) successEl.textContent = `${success} (${successRate}%)`;
-    if (errorEl)
-      errorEl.textContent = `${errors} (${(100 - successRate).toFixed(1)}%)`;
     if (avgTimeEl) {
       if (avgResponseTime > 0) {
         avgTimeEl.textContent = `${avgResponseTime}ms`;
@@ -106,6 +233,18 @@
       } else {
         avgTimeEl.textContent = '—';
       }
+    }
+
+    // 更新 Success Pie Chart
+    if (successChart) {
+      successChart.data.datasets[0].data = [success, errors];
+      successChart.update('none'); // 'none' 模式不顯示動畫，提高性能
+    }
+
+    // 更新 Error Pie Chart
+    if (errorChart) {
+      errorChart.data.datasets[0].data = [errors, success];
+      errorChart.update('none'); // 'none' 模式不顯示動畫，提高性能
     }
   }
 
@@ -160,7 +299,7 @@
 
     if (filteredLogs.length === 0) {
       tbody.innerHTML =
-        '<tr class="dashboard-table__empty"><td colspan="6">No requests found.</td></tr>';
+        '<tr class="dashboard-table__empty"><td colspan="7">No requests found.</td></tr>';
       return;
     }
 
@@ -170,11 +309,13 @@
     tbody.innerHTML = sortedLogs
       .slice(0, 100) // 最多顯示 100 條
       .map((log, index) => {
-        const time = new Date(log.timestamp).toLocaleString('zh-TW');
+        const time = formatTime(log.timestamp);
         const statusClass = log.success ? 'status-success' : 'status-error';
         const statusText = log.success
           ? log.status
           : `${log.status} ${log.statusText}`;
+        const orderNo = log.orderNo || '—';
+        const trackingNo = log.trackingNo || '—';
         // 使用原始 requestLogs 的索引
         const originalIndex = requestLogs.indexOf(log);
 
@@ -184,7 +325,8 @@
             <td><span class="method-badge method-${log.method.toLowerCase()}">${
           log.method
         }</span></td>
-            <td class="endpoint-cell">${log.url}</td>
+            <td>${orderNo}</td>
+            <td>${trackingNo}</td>
             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
             <td>${log.responseTime}ms</td>
             <td>
@@ -205,7 +347,7 @@
 
     if (errors.length === 0) {
       tbody.innerHTML =
-        '<tr class="dashboard-table__empty"><td colspan="4">No errors found.</td></tr>';
+        '<tr class="dashboard-table__empty"><td colspan="5">No errors found.</td></tr>';
       return;
     }
 
@@ -214,14 +356,18 @@
     tbody.innerHTML = sortedErrors
       .slice(0, 50) // 最多顯示 50 條錯誤
       .map((log) => {
-        const time = new Date(log.timestamp).toLocaleString('zh-TW');
+        const time = formatTime(log.timestamp);
+        const orderNo = log.orderNo || '—';
+        const trackingNo = log.trackingNo || '—';
+        const errorMessage = log.statusText || log.error || 'Error';
         // 使用原始 requestLogs 的索引
         const originalIndex = requestLogs.indexOf(log);
         return `
           <tr>
             <td>${time}</td>
-            <td class="endpoint-cell">${log.url}</td>
-            <td>${log.statusText || 'Error'}</td>
+            <td>${orderNo}</td>
+            <td>${trackingNo}</td>
+            <td>${errorMessage}</td>
             <td>
               <button class="btn-detail" onclick="showErrorDetails(${originalIndex})">View</button>
             </td>
@@ -249,11 +395,58 @@
     alert(`Error Details:\n\n${details}`);
   };
 
+  // 清除所有記錄
+  function clearAllLogs() {
+    if (
+      confirm(
+        'Are you sure you want to clear all monitoring data? This action cannot be undone.'
+      )
+    ) {
+      try {
+        // 使用 apiMonitor 模組清除記錄
+        if (
+          window.apiMonitor &&
+          typeof window.apiMonitor.clearLogs === 'function'
+        ) {
+          window.apiMonitor.clearLogs();
+        } else {
+          // 備用方案：直接清除 localStorage
+          localStorage.removeItem(STORAGE_KEY);
+        }
+
+        // 重置數據
+        requestLogs = [];
+        filteredLogs = [];
+
+        // 重新渲染
+        renderStats();
+        renderRequestLogs();
+        renderErrorLogs();
+
+        // 重置圖表
+        if (successChart) {
+          successChart.data.datasets[0].data = [0, 0];
+          successChart.update('none');
+        }
+        if (errorChart) {
+          errorChart.data.datasets[0].data = [0, 0];
+          errorChart.update('none');
+        }
+
+        console.log('✅ All monitoring data cleared');
+      } catch (error) {
+        console.error('Failed to clear logs:', error);
+        alert('Failed to clear monitoring data. Please try again.');
+      }
+    }
+  }
+
   // 設置事件監聽器
   function setupEventListeners() {
     const dateRange = document.getElementById('dateRange');
     const statusFilter = document.getElementById('statusFilter');
     const refreshBtn = document.getElementById('refreshBtn');
+    const clearBtn = document.getElementById('clearBtn');
 
     if (dateRange) {
       dateRange.addEventListener('change', applyFilters);
@@ -268,6 +461,10 @@
         loadLogs();
         applyFilters();
       });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', clearAllLogs);
     }
   }
 

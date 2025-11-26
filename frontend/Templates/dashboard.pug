@@ -10,6 +10,7 @@ html(lang="zh-TW")
     link(href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap", rel="stylesheet")
     link(rel="stylesheet", href="./css/main.css")
     link(rel="stylesheet", href="./css/components/dashboard.css")
+    script(src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js")
     script(src="./js/config.js")
     script(src="./js/apiMonitor.js")
     script(src="./js/dashboard.js", defer)
@@ -42,7 +43,8 @@ html(lang="zh-TW")
                 path(d="M22 11.08V12a10 10 0 1 1-5.93-9.14")
                 polyline(points="22 4 12 14.01 9 11.01")
             .stat-card__content
-              .stat-card__value#successRequests 0
+              .stat-card__chart-container
+                canvas#successChart
               .stat-card__label Success Rate
           
           .stat-card
@@ -52,7 +54,8 @@ html(lang="zh-TW")
                 line(x1="12", y1="8", x2="12", y2="12")
                 line(x1="12", y1="16", x2="12.01", y2="16")
             .stat-card__content
-              .stat-card__value#errorRequests 0
+              .stat-card__chart-container
+                canvas#errorChart
               .stat-card__label Error Rate
           
           .stat-card
@@ -86,7 +89,9 @@ html(lang="zh-TW")
           .dashboard-panel
             .dashboard-panel__header
               h2.dashboard-panel__title API Request Logs
-              button.btn.btn--secondary#refreshBtn Refresh
+              .header-actions
+                button.btn.btn--secondary#refreshBtn Refresh
+                button.btn.btn--danger#clearBtn Clear All
             .dashboard-panel__body
               .dashboard-table-container
                 table.dashboard-table
@@ -94,13 +99,14 @@ html(lang="zh-TW")
                     tr
                       th Time
                       th Method
-                      th Endpoint
+                      th Job No.
+                      th Tracking No.
                       th Status
                       th Response Time
                       th Details
                   tbody#requestLogs
                     tr.dashboard-table__empty
-                      td(colspan="6") No requests logged yet. Start making API calls to see them here.
+                      td(colspan="7") No requests logged yet. Start making API calls to see them here.
 
           .dashboard-panel
             .dashboard-panel__header
@@ -111,12 +117,13 @@ html(lang="zh-TW")
                   thead
                     tr
                       th Time
-                      th Endpoint
+                      th Job No.
+                      th Tracking No.
                       th Error Message
                       th Details
                   tbody#errorLogs
                     tr.dashboard-table__empty
-                      td(colspan="4") No errors logged yet.
+                      td(colspan="5") No errors logged yet.
 
         // 圖表區域（可選）
         .dashboard-charts
