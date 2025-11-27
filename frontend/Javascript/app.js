@@ -1,40 +1,24 @@
 (function () {
-  // TailorMed 貨件追蹤系統 - API 整合
+  /**
+   * TailorMed 貨件追蹤系統 - API 整合
+   * Version: 1.0.0 (正式版)
+   *
+   * 功能：
+   * - 貨件追蹤查詢
+   * - 查詢結果顯示
+   * - 錯誤處理與用戶提示
+   */
 
   // API 設定（從 config.js 讀取，如果沒有則使用預設值）
   const API_BASE_URL =
     window.CONFIG?.API_BASE_URL || 'http://localhost:3000/api';
 
-  // 使用追蹤功能（最小影響）
+  // 使用追蹤功能（已禁用）
   // 注意：此功能需要後端有對應的 /api/usage endpoint
-  // 如果沒有 usage function，此函數不會執行以避免 console 錯誤
+  // 由於後端沒有 usage function，此功能已完全禁用以避免 404 錯誤
   function trackUsage(action, data) {
-    // 只在開發環境或本地環境執行（避免生產環境的 404 錯誤）
-    const isLocalDev = API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1');
-    if (!isLocalDev) {
-      // 生產環境不執行追蹤，避免 404 錯誤
-      return;
-    }
-    
-    try {
-      // 非阻塞式追蹤，不影響主要功能
-      setTimeout(() => {
-        fetch(`${API_BASE_URL}/usage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: action,
-            data: data,
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-            referrer: document.referrer,
-            url: window.location.href,
-          }),
-        }).catch(() => {}); // 靜默處理錯誤，不影響主要功能
-      }, 0);
-    } catch (error) {
-      // 靜默處理，不影響主要功能
-    }
+    // 完全禁用此功能，避免 404 錯誤
+    return;
   }
 
   // DOM 元素

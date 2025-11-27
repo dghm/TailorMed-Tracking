@@ -1,6 +1,14 @@
 (function () {
-  // API Monitor - 共用監控模組
-  // 可以在所有頁面使用，記錄 API 請求
+  /**
+   * API Monitor - 共用監控模組
+   * Version: 1.0.0 (正式版)
+   *
+   * 功能：
+   * - 攔截並記錄所有 API 請求
+   * - 記錄請求參數、回應狀態、回應時間
+   * - 提取地理位置資訊（如果可用）
+   * - 將記錄儲存到 localStorage
+   */
   'use strict';
 
   const STORAGE_KEY = 'tracking_api_logs';

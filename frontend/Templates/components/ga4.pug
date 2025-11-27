@@ -1,0 +1,14 @@
+//- Google Analytics 4 (GA4) 追蹤代碼
+//- GA4 Measurement ID: G-XJ4V12JRM5
+
+- const ga4MeasurementId = typeof GA4_MEASUREMENT_ID !== 'undefined' ? GA4_MEASUREMENT_ID : 'G-XJ4V12JRM5'
+
+//- 只有在設定了有效的 Measurement ID 時才載入 GA4
+if ga4MeasurementId && ga4MeasurementId !== 'YOUR_GA4_MEASUREMENT_ID' && ga4MeasurementId.startsWith('G-')
+  script(async, src=`https://www.googletagmanager.com/gtag/js?id=${ga4MeasurementId}`)
+  script.
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '#{ga4MeasurementId}');
+

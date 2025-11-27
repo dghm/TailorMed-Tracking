@@ -1,5 +1,14 @@
 (function () {
-  // API Dashboard - 監控 API 請求
+  /**
+   * TailorMed Tracking System - API Monitoring Dashboard
+   * Version: 1.0.0 (正式版)
+   *
+   * 功能：
+   * - API 請求監控與統計
+   * - 成功/失敗比例視覺化
+   * - 查詢日誌記錄與分頁顯示
+   * - 地理位置資訊記錄
+   */
   'use strict';
 
   // 從 localStorage 讀取請求記錄

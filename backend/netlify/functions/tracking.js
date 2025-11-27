@@ -1,5 +1,14 @@
-// Netlify Function for tracking API
-// 處理 /api/tracking, /api/tracking-public, /api/health 等請求
+/**
+ * Netlify Function for tracking API
+ * Version: 1.0.0 (正式版)
+ *
+ * 功能：
+ * - 處理 /api/tracking, /api/tracking-public, /api/health 等請求
+ * - 支援 GET 和 POST 方法
+ * - 連接 Airtable 資料庫查詢貨件資訊
+ * - IP 頻率限制（每分鐘 3 次，每小時 10 次）
+ * - 錯誤處理與回應格式化
+ */
 
 // 本地開發時使用資料庫連接
 let dbConnection = null;
@@ -61,7 +70,7 @@ function initConnections() {
       // 如果不存在，則嘗試使用相對路徑
       const path = require('path');
       const fs = require('fs');
-      
+
       // 在 Netlify 部署環境中，直接使用相對路徑 require
       // airtable.js 應該在同一個目錄下
       try {
@@ -70,30 +79,44 @@ function initConnections() {
         console.log('✅ 已載入 Airtable 連接模組（直接 require）');
       } catch (requireError) {
         // 如果直接 require 失敗，嘗試使用完整路徑
-        console.log('⚠️ 直接 require 失敗，嘗試使用完整路徑:', requireError.message);
+        console.log(
+          '⚠️ 直接 require 失敗，嘗試使用完整路徑:',
+          requireError.message
+        );
         const localPath = path.join(__dirname, 'airtable.js');
-        const fallbackPath = path.resolve(__dirname, '../../../database/airtable.js');
-        
+        const fallbackPath = path.resolve(
+          __dirname,
+          '../../../database/airtable.js'
+        );
+
         if (fs.existsSync(localPath)) {
           // 清除緩存
           if (require.cache[localPath]) {
             delete require.cache[localPath];
           }
           airtableConnection = require(localPath);
-          console.log('✅ 已載入 Airtable 連接模組（使用完整路徑）:', localPath);
+          console.log(
+            '✅ 已載入 Airtable 連接模組（使用完整路徑）:',
+            localPath
+          );
         } else if (fs.existsSync(fallbackPath)) {
           if (require.cache[fallbackPath]) {
             delete require.cache[fallbackPath];
           }
           airtableConnection = require(fallbackPath);
-          console.log('✅ 已載入 Airtable 連接模組（使用備用路徑）:', fallbackPath);
+          console.log(
+            '✅ 已載入 Airtable 連接模組（使用備用路徑）:',
+            fallbackPath
+          );
         } else {
           console.error('❌ 無法找到 airtable 模組，嘗試的路徑:');
           console.error('  - ./airtable (相對路徑)');
           console.error('  -', localPath);
           console.error('  -', fallbackPath);
           console.error('  - __dirname:', __dirname);
-          throw new Error(`Cannot find airtable module. Checked: ./airtable, ${localPath}, ${fallbackPath}`);
+          throw new Error(
+            `Cannot find airtable module. Checked: ./airtable, ${localPath}, ${fallbackPath}`
+          );
         }
       }
       console.log('✅ 已載入 Airtable 連接模組');
@@ -200,7 +223,7 @@ exports.handler = async (event, context) => {
         orderNo = queryStringParameters?.orderNo;
         trackingNo = queryStringParameters?.trackingNo;
       }
-      
+
       // POST 請求：從 body 取得
       if (httpMethod === 'POST') {
         const parsedBody = body ? JSON.parse(body) : {};
@@ -253,39 +276,55 @@ exports.handler = async (event, context) => {
           // 如果不存在，則嘗試使用相對路徑
           const path = require('path');
           const fs = require('fs');
-          
+
           // 在 Netlify 部署環境中，直接使用相對路徑 require
           // airtable.js 應該在同一個目錄下
           try {
             // 先嘗試直接 require（最簡單的方式）
             airtableConnection = require('./airtable');
-            console.log('✅ 已載入 Airtable 連接模組（在 handler 中，直接 require）');
+            console.log(
+              '✅ 已載入 Airtable 連接模組（在 handler 中，直接 require）'
+            );
           } catch (requireError) {
             // 如果直接 require 失敗，嘗試使用完整路徑
-            console.log('⚠️ 直接 require 失敗，嘗試使用完整路徑:', requireError.message);
+            console.log(
+              '⚠️ 直接 require 失敗，嘗試使用完整路徑:',
+              requireError.message
+            );
             const localPath = path.join(__dirname, 'airtable.js');
-            const fallbackPath = path.resolve(__dirname, '../../../database/airtable.js');
-            
+            const fallbackPath = path.resolve(
+              __dirname,
+              '../../../database/airtable.js'
+            );
+
             if (fs.existsSync(localPath)) {
               // 清除緩存
               if (require.cache[localPath]) {
                 delete require.cache[localPath];
               }
               airtableConnection = require(localPath);
-              console.log('✅ 已載入 Airtable 連接模組（在 handler 中，使用完整路徑）:', localPath);
+              console.log(
+                '✅ 已載入 Airtable 連接模組（在 handler 中，使用完整路徑）:',
+                localPath
+              );
             } else if (fs.existsSync(fallbackPath)) {
               if (require.cache[fallbackPath]) {
                 delete require.cache[fallbackPath];
               }
               airtableConnection = require(fallbackPath);
-              console.log('✅ 已載入 Airtable 連接模組（在 handler 中，使用備用路徑）:', fallbackPath);
+              console.log(
+                '✅ 已載入 Airtable 連接模組（在 handler 中，使用備用路徑）:',
+                fallbackPath
+              );
             } else {
               console.error('❌ 無法找到 airtable 模組，嘗試的路徑:');
               console.error('  - ./airtable (相對路徑)');
               console.error('  -', localPath);
               console.error('  -', fallbackPath);
               console.error('  - __dirname:', __dirname);
-              throw new Error(`Cannot find airtable module. Checked: ./airtable, ${localPath}, ${fallbackPath}`);
+              throw new Error(
+                `Cannot find airtable module. Checked: ./airtable, ${localPath}, ${fallbackPath}`
+              );
             }
           }
           console.log('✅ 已載入 Airtable 連接模組（在 handler 中）');
@@ -359,8 +398,8 @@ exports.handler = async (event, context) => {
 
           // 格式化回應資料
           const responseData = {
-        success: true,
-        data: {
+            success: true,
+            data: {
               id: shipment.id,
               orderNo: shipment.orderNo,
               trackingNo: shipment.trackingNo,
@@ -459,11 +498,11 @@ exports.handler = async (event, context) => {
                 date: item.date,
               })),
             },
-      };
+          };
 
-      return {
-        statusCode: 200,
-        headers,
+          return {
+            statusCode: 200,
+            headers,
             body: JSON.stringify(responseData),
           };
         } catch (error) {
@@ -581,7 +620,7 @@ exports.handler = async (event, context) => {
     // 處理 /api/tracking/timeline/:trackingNo（如果需要）
     if (path.includes('/api/tracking/timeline/')) {
       const trackingNo = path.split('/timeline/')[1];
-      
+
       if (!trackingNo) {
         return {
           statusCode: 400,
