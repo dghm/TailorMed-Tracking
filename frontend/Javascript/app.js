@@ -75,7 +75,7 @@
     return messageBox;
   }
 
-  function showResultsMessage(type, message) {
+  function showResultsMessage(type, message, errorType = null) {
     if (!resultsPanel) return;
 
     resultsPanel.classList.remove('is-loading', 'is-error');
@@ -103,9 +103,18 @@
         </div>
       `;
       } else if (type === 'error') {
+        // 根據錯誤類型顯示不同的圖標
+        let errorIcon = 'images/noData.svg';
+        let errorAlt = 'No data found illustration';
+
+        if (errorType === 'rate_limit') {
+          errorIcon = 'images/rateLimit.svg';
+          errorAlt = 'Rate limit exceeded illustration';
+        }
+
         illustration = `
         <div class="results-message__illustration">
-          <img src="images/noData.svg" alt="No data found illustration">
+          <img src="${errorIcon}" alt="${errorAlt}">
         </div>
       `;
       }
@@ -324,11 +333,26 @@
   }
 
   // 查詢貨件資料
+  // 獲取 API Key（從 URL 參數或 localStorage）
+  function getApiKey() {
+    const params = new URLSearchParams(window.location.search);
+    const apiKeyFromURL = params.get('apiKey');
+    if (apiKeyFromURL) {
+      return apiKeyFromURL;
+    }
+    // 也可以從 localStorage 讀取（如果需要的話）
+    // return localStorage.getItem('apiKey');
+    return null;
+  }
+
   async function fetchTrackingData(orderNo, trackingNo) {
     // 追蹤查詢嘗試
     trackUsage('query_attempt', { orderNo, trackingNo });
 
     const startTime = Date.now();
+
+    // 獲取 API Key
+    const apiKey = getApiKey();
 
     try {
       const controller =
@@ -339,16 +363,31 @@
         timeoutId = setTimeout(() => controller.abort(), MAX_QUERY_TIME);
       }
 
+      // 準備請求 headers 和 body
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      // 如果有 API Key，添加到 header
+      if (apiKey) {
+        headers['X-API-Key'] = apiKey;
+      }
+
+      const body = {
+        orderNo: orderNo,
+        trackingNo: trackingNo,
+      };
+
+      // 如果有 API Key，也添加到 body（支援多種方式）
+      if (apiKey) {
+        body.apiKey = apiKey;
+      }
+
       // 使用 POST 方法呼叫 API（Netlify Functions 支援 POST）
       const response = await fetch(`${API_BASE_URL}/tracking`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderNo: orderNo,
-          trackingNo: trackingNo,
-        }),
+        headers: headers,
+        body: JSON.stringify(body),
         signal: controller?.signal,
       });
 
@@ -1311,9 +1350,13 @@
       return;
     }
 
-    // 處理查詢次數限制
+    // 處理查詢次數限制（429 錯誤）
     if (result && result.error === 'rate_limit') {
-      showResultsMessage('error', result.message || STATUS_MESSAGES.error);
+      showResultsMessage(
+        'error',
+        result.message || STATUS_MESSAGES.error,
+        'rate_limit'
+      );
       return;
     }
 
@@ -1334,10 +1377,15 @@
     renderTimeline(result);
     updateApiDebugPanel(result);
 
-    // 更新 URL (不刷新頁面)
+    // 更新 URL (不刷新頁面)，保留 apiKey 參數
     const url = new URL(window.location);
     url.searchParams.set('order', orderNo);
     url.searchParams.set('tracking', trackingNo);
+    // 如果 URL 中有 apiKey，保留它
+    const apiKey = getApiKey();
+    if (apiKey) {
+      url.searchParams.set('apiKey', apiKey);
+    }
     window.history.pushState({}, '', url);
 
     // 滾動到結果區域（額外保留 75px 空間）
@@ -1356,6 +1404,18 @@
 
     if (jobInput && trackingNo) {
       jobInput.value = trackingNo;
+    }
+
+    // 如果 URL 中有 order 和 tracking 參數，自動觸發查詢
+    if (orderNo && trackingNo) {
+      // 延遲執行，確保 DOM 已完全載入
+      setTimeout(() => {
+        // 創建一個模擬的 event 對象
+        const mockEvent = {
+          preventDefault: () => {},
+        };
+        handleFormSubmit(mockEvent);
+      }, 100);
     }
   }
 

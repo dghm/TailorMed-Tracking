@@ -14,6 +14,27 @@
 let dbConnection = null;
 let airtableConnection = null;
 
+// 載入 Rate Limiter
+const { checkRateLimit } = require('./rateLimiter');
+// 載入 API Key 驗證器
+const { validateApiKey, extractApiKey } = require('./apiKeyValidator');
+
+// 獲取客戶端 IP 地址
+function getClientIP(event) {
+  // Netlify 會將真實 IP 放在這些 header 中
+  const headers = event.headers || {};
+
+  // 優先順序：x-forwarded-for > x-client-ip > client-ip > 直接從 event
+  const ip =
+    headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    headers['x-client-ip'] ||
+    headers['client-ip'] ||
+    event.requestContext?.identity?.sourceIp ||
+    'unknown';
+
+  return ip;
+}
+
 // 載入環境變數的函數
 function loadEnvVars() {
   const path = require('path');
@@ -192,6 +213,37 @@ exports.handler = async (event, context) => {
   console.log('🔍 Event queryStringParameters:', queryStringParameters);
 
   try {
+    // 處理 /api/debug-ip 端點（調試用，顯示 IP 和 rate limit 資訊）
+    if (path.includes('/api/debug-ip') || path.includes('/debug-ip')) {
+      const clientIP = getClientIP(event);
+      const rateLimitResult = checkRateLimit(clientIP);
+      const isLocalIP =
+        !clientIP ||
+        clientIP === 'unknown' ||
+        clientIP.startsWith('127.') ||
+        clientIP.startsWith('192.168.') ||
+        clientIP.startsWith('10.') ||
+        clientIP === '::1';
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          clientIP: clientIP,
+          isLocalIP: isLocalIP,
+          rateLimitResult: rateLimitResult,
+          headers: {
+            'x-forwarded-for': event.headers?.['x-forwarded-for'],
+            'x-client-ip': event.headers?.['x-client-ip'],
+            'client-ip': event.headers?.['client-ip'],
+          },
+          message: isLocalIP
+            ? '本地 IP 被排除在 rate limit 之外（開發環境）'
+            : '此 IP 會受到 rate limit 限制',
+        }),
+      };
+    }
+
     // 處理 /api/health 端點（支援重定向後的 path）
     if (path.includes('/api/health') || path.includes('/health')) {
       return {
@@ -216,6 +268,73 @@ exports.handler = async (event, context) => {
       path.includes('/.netlify/functions/tracking') ||
       path === '/tracking'
     ) {
+      // 提取並驗證 API Key
+      const apiKey = extractApiKey(event);
+      const hasApiKey = apiKey ? validateApiKey(apiKey) : false;
+
+      // 調試信息：顯示環境變數和 API Key 驗證狀態
+      console.log('🔍 API_KEYS env:', process.env.API_KEYS ? 'SET' : 'NOT SET');
+      console.log('🔍 API_KEYS value:', process.env.API_KEYS);
+      if (apiKey) {
+        console.log('🔑 API Key provided:', apiKey);
+        console.log('🔑 API Key valid:', hasApiKey);
+        console.log(
+          '🔑 Valid API Keys:',
+          process.env.API_KEYS
+            ? process.env.API_KEYS.split(',').map((k) => k.trim())
+            : 'none'
+        );
+      } else {
+        console.log('🔑 No API Key provided');
+      }
+
+      // 獲取客戶端 IP 並檢查 Rate Limit（傳入 API Key 狀態）
+      const clientIP = getClientIP(event);
+      console.log('🔍 Client IP:', clientIP);
+      console.log('🔍 Event headers (IP related):', {
+        'x-forwarded-for': event.headers?.['x-forwarded-for'],
+        'x-client-ip': event.headers?.['x-client-ip'],
+        'client-ip': event.headers?.['client-ip'],
+      });
+
+      const rateLimitResult = checkRateLimit(clientIP, hasApiKey);
+      console.log(
+        '🔍 Rate limit check result:',
+        JSON.stringify(rateLimitResult, null, 2)
+      );
+      console.log(
+        '🔍 IP 是否為本地:',
+        !clientIP ||
+          clientIP === 'unknown' ||
+          clientIP.startsWith('127.') ||
+          clientIP.startsWith('192.168.') ||
+          clientIP.startsWith('10.') ||
+          clientIP === '::1'
+      );
+
+      if (!rateLimitResult.allowed) {
+        console.log(
+          '⚠️ Rate limit exceeded for IP:',
+          clientIP,
+          rateLimitResult
+        );
+        return {
+          statusCode: 429,
+          headers,
+          body: JSON.stringify({
+            success: false,
+            error: 'rate_limit',
+            errorType: 'rate_limit',
+            message: rateLimitResult.message,
+            limitType: rateLimitResult.limitType,
+            limit: rateLimitResult.limit,
+            waitTime: rateLimitResult.waitTime,
+          }),
+        };
+      }
+
+      console.log('✅ Rate limit check passed for IP:', clientIP);
+
       let orderNo, trackingNo;
 
       // GET 請求：從 query parameters 取得

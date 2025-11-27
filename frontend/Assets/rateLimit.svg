@@ -1,0 +1,15 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="51.0953" cy="85.5" rx="30.5" ry="2.5" fill="#143463" fill-opacity="0.4"/>
+<circle cx="49.5" cy="52.8286" r="6.31429" stroke="#143463" stroke-opacity="0.4"/>
+<path d="M57.5 69.7711C54.9758 70.5694 52.2882 71 49.5 71C34.8645 71 23 59.1355 23 44.5C23 29.8645 34.8645 18 49.5 18C64.1355 18 76 29.8645 76 44.5C76 45.1728 75.9749 45.8398 75.9257 46.5" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M49.5 18.3786V25.1929" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M30.5714 44.5L23.7571 44.5" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M75.2428 44.5L68.4285 44.5" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M67.6714 25.95L62.3714 31.147" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M31.3286 25.95L36.6286 31.147" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M69.5642 38.1264L49.8785 46.3929" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M69.5643 38.0643L55.9357 52.45" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M43.4429 55.1H26.0286" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M62.5 55.1H55.5571" stroke="#143463" stroke-opacity="0.4" stroke-linecap="round"/>
+<path d="M72.9995 64.8239H73.0097M72.9995 57.6649V61.2444M71.1992 51.958L62.2819 66.0171C62.0982 66.3178 62.001 66.6587 62 67.0059C61.999 67.3531 62.0943 67.6945 62.2764 67.9961C62.4584 68.2977 62.7209 68.5491 63.0377 68.7252C63.3545 68.9013 63.7147 68.9961 64.0823 69H81.9168C82.2846 68.9964 82.6449 68.9019 82.962 68.7259C83.279 68.5498 83.5417 68.2984 83.7238 67.9967C83.9059 67.6949 84.0011 67.3534 84 67.006C83.9988 66.6587 83.9013 66.3177 83.7172 66.0171L74.8012 51.958C74.6137 51.6656 74.3494 51.4238 74.0341 51.256C73.7187 51.0882 73.3628 51 73.0008 51C72.6388 51 72.2829 51.0882 71.9676 51.256C71.6522 51.4238 71.388 51.6656 71.2004 51.958" stroke="#143463" stroke-opacity="0.4" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
