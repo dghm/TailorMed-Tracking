@@ -1208,43 +1208,39 @@
             eventElement.dataset.eventType = eventItem.eventType;
           }
           
-          // 根據事件在 timeline 中的實際位置來設定 data-step
-          // 找到事件在原始 timeline 中的位置
-          const eventIndex = timeline.findIndex((item) => 
-            item.isEvent && 
-            item.title === eventItem.title &&
-            item.date === eventItem.date &&
-            item.time === eventItem.time
-          );
-          
-          if (eventIndex >= 0) {
-            // 找到事件前面的最後一個步驟
-            let previousStep = null;
-            for (let i = eventIndex - 1; i >= 0; i--) {
-              if (!timeline[i].isEvent && timeline[i].step !== null && timeline[i].step !== undefined) {
-                previousStep = timeline[i].step;
-                break;
-              }
-            }
+          // 根據事件類型設定 data-step
+          // Dry Ice Refilled(Terminal) 應該在 In Transit (step 4) 之後
+          // Dry Ice Refilled 應該在 Destination Customs Process (step 5) 之後
+          // 不管 Dry Ice Refilled(Terminal) 是否被勾選，Dry Ice Refilled 都應該顯示在 step 5 之後
+          if (eventItem.eventType === 'dryice-terminal') {
+            eventElement.dataset.step = '4';
+          } else if (eventItem.eventType === 'dryice-standard') {
+            // Dry Ice Refilled 始終顯示在 Destination Customs Process (step 5) 之後
+            eventElement.dataset.step = '5';
+          } else {
+            // 對於其他事件，嘗試根據事件在 timeline 中的實際位置來設定
+            const eventIndex = timeline.findIndex((item) => 
+              item.isEvent && 
+              item.title === eventItem.title &&
+              item.date === eventItem.date &&
+              item.time === eventItem.time
+            );
             
-            if (previousStep !== null) {
-              eventElement.dataset.step = String(previousStep);
-            } else {
-              // 如果找不到前面的步驟，使用 eventType 作為備用
-              if (eventItem.eventType === 'dryice-terminal') {
-                eventElement.dataset.step = '4';
-              } else if (eventItem.eventType === 'dryice-standard') {
-                eventElement.dataset.step = '5';
+            if (eventIndex >= 0) {
+              // 找到事件前面的最後一個步驟
+              let previousStep = null;
+              for (let i = eventIndex - 1; i >= 0; i--) {
+                if (!timeline[i].isEvent && timeline[i].step !== null && timeline[i].step !== undefined) {
+                  previousStep = timeline[i].step;
+                  break;
+                }
+              }
+              
+              if (previousStep !== null) {
+                eventElement.dataset.step = String(previousStep);
               } else if (eventItem.step !== undefined && eventItem.step !== null) {
                 eventElement.dataset.step = String(eventItem.step);
               }
-            }
-          } else {
-            // 如果找不到事件在 timeline 中的位置，使用 eventType 作為備用
-            if (eventItem.eventType === 'dryice-terminal') {
-              eventElement.dataset.step = '4';
-            } else if (eventItem.eventType === 'dryice-standard') {
-              eventElement.dataset.step = '5';
             } else if (eventItem.step !== undefined && eventItem.step !== null) {
               eventElement.dataset.step = String(eventItem.step);
             }
