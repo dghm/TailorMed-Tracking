@@ -84,6 +84,23 @@ function formatDateTaiwan(dateInput) {
  */
 function formatTimeTaiwan(dateInput) {
   if (!dateInput) return '';
+
+  // 如果輸入已經是時間字符串格式（如 "00:08" 或 "HH:MM"），直接返回
+  if (typeof dateInput === 'string') {
+    const timeMatch = dateInput.match(/^(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      const hours = parseInt(timeMatch[1], 10);
+      const minutes = timeMatch[2];
+      // 如果小時是 24，轉換為 00（並保持分鐘不變）
+      if (hours === 24) {
+        return `00:${minutes}`;
+      }
+      // 如果小時是 0-23，直接返回格式化後的時間
+      if (hours >= 0 && hours <= 23) {
+        return `${String(hours).padStart(2, '0')}:${minutes}`;
+      }
+    }
+  }
   
   let date;
   if (dateInput instanceof Date) {
@@ -105,6 +122,12 @@ function formatTimeTaiwan(dateInput) {
   const parts = formatter.formatToParts(date);
   const hours = parts.find(p => p.type === 'hour').value;
   const minutes = parts.find(p => p.type === 'minute').value;
+
+  // 確保不會出現 24:xx 格式，如果小時是 24，轉換為 00
+  const hoursNum = parseInt(hours, 10);
+  if (hoursNum === 24) {
+    return `00:${minutes}`;
+  }
   
   return `${hours}:${minutes}`;
 }
