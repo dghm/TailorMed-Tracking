@@ -18,6 +18,54 @@ let airtableConnection = null;
 const { checkRateLimit } = require('./rateLimiter');
 // 載入 API Key 驗證器
 const { validateApiKey, extractApiKey } = require('./apiKeyValidator');
+const Airtable = require('airtable');
+
+let logBase = null;
+
+function initLogBase() {
+  if (!logBase) {
+    const apiKey = process.env.AIRTABLE_API_KEY;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    if (!apiKey || !baseId) {
+      throw new Error('Missing Airtable API Key/Base ID for logging');
+    }
+    logBase = new Airtable({ apiKey }).base(baseId);
+  }
+  return logBase;
+}
+
+function buildLogFields(payload) {
+  const fields = {};
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      fields[key] = value;
+    }
+  });
+  return fields;
+}
+
+async function logTrackingRequest(logData) {
+  if (process.env.ENABLE_TRACKING_LOGS === 'false') return;
+  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) return;
+
+  const tableName = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
+  try {
+    const base = initLogBase();
+    const fields = buildLogFields(logData);
+    await base(tableName).create([{ fields }]);
+  } catch (error) {
+    console.warn('⚠️ Tracking log write failed:', error.message);
+  }
+}
+
+async function logAndReturn(response, logData) {
+  try {
+    await logTrackingRequest(logData);
+  } catch (error) {
+    // Logging should never block responses
+  }
+  return response;
+}
 
 // 獲取客戶端 IP 地址
 function getClientIP(event) {
@@ -271,6 +319,7 @@ exports.handler = async (event, context) => {
       // 提取並驗證 API Key
       const apiKey = extractApiKey(event);
       const hasApiKey = apiKey ? validateApiKey(apiKey) : false;
+      const requestStart = Date.now();
 
       // 調試信息：顯示環境變數和 API Key 驗證狀態
       console.log('🔍 API_KEYS env:', process.env.API_KEYS ? 'SET' : 'NOT SET');
@@ -318,7 +367,8 @@ exports.handler = async (event, context) => {
           clientIP,
           rateLimitResult
         );
-        return {
+        return await logAndReturn(
+          {
           statusCode: 429,
           headers,
           body: JSON.stringify({
@@ -330,7 +380,22 @@ exports.handler = async (event, context) => {
             limit: rateLimitResult.limit,
             waitTime: rateLimitResult.waitTime,
           }),
-        };
+          },
+          {
+            Timestamp: new Date().toISOString(),
+            Method: httpMethod,
+            Path: path,
+            ClientIP: clientIP,
+            UserAgent: event.headers?.['user-agent'],
+            ApiKeyUsed: Boolean(apiKey),
+            ApiKeyValid: hasApiKey,
+            StatusCode: 429,
+            Success: false,
+            ErrorType: 'rate_limit',
+            ErrorMessage: rateLimitResult.message,
+            ResponseTimeMs: Date.now() - requestStart,
+          }
+        );
       }
 
       console.log('✅ Rate limit check passed for IP:', clientIP);
@@ -352,14 +417,32 @@ exports.handler = async (event, context) => {
 
       // 驗證參數
       if (!orderNo || !trackingNo) {
-        return {
+        return await logAndReturn(
+          {
           statusCode: 400,
           headers,
           body: JSON.stringify({
             error: 'Missing parameters',
             message: 'Both orderNo and trackingNo are required',
           }),
-        };
+          },
+          {
+            Timestamp: new Date().toISOString(),
+            Method: httpMethod,
+            Path: path,
+            ClientIP: clientIP,
+            UserAgent: event.headers?.['user-agent'],
+            ApiKeyUsed: Boolean(apiKey),
+            ApiKeyValid: hasApiKey,
+            OrderNo: orderNo,
+            TrackingNo: trackingNo,
+            StatusCode: 400,
+            Success: false,
+            ErrorType: 'missing_parameters',
+            ErrorMessage: 'Both orderNo and trackingNo are required',
+            ResponseTimeMs: Date.now() - requestStart,
+          }
+        );
       }
 
       console.log('🔍 Checking Airtable connection...');
@@ -489,7 +572,8 @@ exports.handler = async (event, context) => {
           } catch (queryError) {
             console.error('❌ Airtable query error:', queryError);
             console.error('❌ Error stack:', queryError.stack);
-            return {
+            return await logAndReturn(
+              {
               statusCode: 500,
               headers,
               body: JSON.stringify({
@@ -497,19 +581,54 @@ exports.handler = async (event, context) => {
                 error: 'Airtable query failed',
                 message: queryError.message,
               }),
-            };
+              },
+              {
+                Timestamp: new Date().toISOString(),
+                Method: httpMethod,
+                Path: path,
+                ClientIP: clientIP,
+                UserAgent: event.headers?.['user-agent'],
+                ApiKeyUsed: Boolean(apiKey),
+                ApiKeyValid: hasApiKey,
+                OrderNo: orderNo,
+                TrackingNo: trackingNo,
+                StatusCode: 500,
+                Success: false,
+                ErrorType: 'airtable_query_failed',
+                ErrorMessage: queryError.message,
+                ResponseTimeMs: Date.now() - requestStart,
+              }
+            );
           }
 
           if (!shipment) {
             console.log('⚠️ No shipment found for:', orderNo, trackingNo);
-            return {
+            return await logAndReturn(
+              {
               statusCode: 404,
               headers,
               body: JSON.stringify({
                 success: false,
                 message: 'No record found. Please verify the tracking number.',
               }),
-            };
+              },
+              {
+                Timestamp: new Date().toISOString(),
+                Method: httpMethod,
+                Path: path,
+                ClientIP: clientIP,
+                UserAgent: event.headers?.['user-agent'],
+                ApiKeyUsed: Boolean(apiKey),
+                ApiKeyValid: hasApiKey,
+                OrderNo: orderNo,
+                TrackingNo: trackingNo,
+                StatusCode: 404,
+                Success: false,
+                ErrorType: 'not_found',
+                ErrorMessage: 'No record found. Please verify the tracking number.',
+                ResponseTimeMs: Date.now() - requestStart,
+              }
+            );
           }
 
           // 查詢時間軸資料（傳入 shipment 的原始欄位以便生成 timeline）
@@ -545,14 +664,31 @@ exports.handler = async (event, context) => {
             },
           };
 
-          return {
+          return await logAndReturn(
+            {
             statusCode: 200,
             headers,
             body: JSON.stringify(responseData),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 200,
+              Success: true,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         } catch (error) {
           console.error('Airtable query error:', error);
-          return {
+          return await logAndReturn(
+            {
             statusCode: 500,
             headers,
             body: JSON.stringify({
@@ -560,7 +696,24 @@ exports.handler = async (event, context) => {
               error: 'Airtable query failed',
               message: error.message,
             }),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 500,
+              Success: false,
+              ErrorType: 'airtable_query_failed',
+              ErrorMessage: error.message,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         }
       }
 
@@ -577,14 +730,32 @@ exports.handler = async (event, context) => {
           const shipment = await findShipment(orderNo, trackingNo);
 
           if (!shipment) {
-            return {
+            return await logAndReturn(
+              {
               statusCode: 404,
               headers,
               body: JSON.stringify({
                 success: false,
                 message: 'No record found. Please verify the tracking number.',
               }),
-            };
+              },
+              {
+                Timestamp: new Date().toISOString(),
+                Method: httpMethod,
+                Path: path,
+                ClientIP: clientIP,
+                UserAgent: event.headers?.['user-agent'],
+                ApiKeyUsed: Boolean(apiKey),
+                ApiKeyValid: hasApiKey,
+                OrderNo: orderNo,
+                TrackingNo: trackingNo,
+                StatusCode: 404,
+                Success: false,
+                ErrorType: 'not_found',
+                ErrorMessage: 'No record found. Please verify the tracking number.',
+                ResponseTimeMs: Date.now() - requestStart,
+              }
+            );
           }
 
           // 查詢時間軸資料（如果 shipment 有 _raw 欄位，傳入以便生成 timeline）
@@ -619,14 +790,31 @@ exports.handler = async (event, context) => {
             },
           };
 
-          return {
+          return await logAndReturn(
+            {
             statusCode: 200,
             headers,
             body: JSON.stringify(responseData),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 200,
+              Success: true,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         } catch (error) {
           console.error('Database query error:', error);
-          return {
+          return await logAndReturn(
+            {
             statusCode: 500,
             headers,
             body: JSON.stringify({
@@ -634,7 +822,24 @@ exports.handler = async (event, context) => {
               error: 'Database query failed',
               message: error.message,
             }),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 500,
+              Success: false,
+              ErrorType: 'database_query_failed',
+              ErrorMessage: error.message,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         }
       }
 
@@ -667,7 +872,8 @@ exports.handler = async (event, context) => {
 
           if (!backendResponse.ok) {
             if (backendResponse.status === 404) {
-              return {
+              return await logAndReturn(
+                {
                 statusCode: 404,
                 headers,
                 body: JSON.stringify({
@@ -675,12 +881,31 @@ exports.handler = async (event, context) => {
                   message:
                     'No record found. Please verify the tracking number.',
                 }),
-              };
+                },
+                {
+                  Timestamp: new Date().toISOString(),
+                  Method: httpMethod,
+                  Path: path,
+                  ClientIP: clientIP,
+                  UserAgent: event.headers?.['user-agent'],
+                  ApiKeyUsed: Boolean(apiKey),
+                  ApiKeyValid: hasApiKey,
+                  OrderNo: orderNo,
+                  TrackingNo: trackingNo,
+                  StatusCode: 404,
+                  Success: false,
+                  ErrorType: 'not_found',
+                  ErrorMessage:
+                    'No record found. Please verify the tracking number.',
+                  ResponseTimeMs: Date.now() - requestStart,
+                }
+              );
             }
 
             if (backendResponse.status === 429) {
               const errorData = await backendResponse.json().catch(() => ({}));
-              return {
+              return await logAndReturn(
+                {
                 statusCode: 429,
                 headers,
                 body: JSON.stringify({
@@ -689,7 +914,26 @@ exports.handler = async (event, context) => {
                     errorData.message ||
                     'Query limit reached (10 per hour). Please try again later.',
                 }),
-              };
+                },
+                {
+                  Timestamp: new Date().toISOString(),
+                  Method: httpMethod,
+                  Path: path,
+                  ClientIP: clientIP,
+                  UserAgent: event.headers?.['user-agent'],
+                  ApiKeyUsed: Boolean(apiKey),
+                  ApiKeyValid: hasApiKey,
+                  OrderNo: orderNo,
+                  TrackingNo: trackingNo,
+                  StatusCode: 429,
+                  Success: false,
+                  ErrorType: 'rate_limit',
+                  ErrorMessage:
+                    errorData.message ||
+                    'Query limit reached (10 per hour). Please try again later.',
+                  ResponseTimeMs: Date.now() - requestStart,
+                }
+              );
             }
 
             throw new Error(
@@ -700,19 +944,36 @@ exports.handler = async (event, context) => {
           const backendData = await backendResponse.json();
 
           // 確保返回格式一致
-          return {
+          return await logAndReturn(
+            {
             statusCode: 200,
             headers,
             body: JSON.stringify({
               success: true,
               data: backendData.data || backendData,
             }),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 200,
+              Success: true,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         } catch (error) {
           console.error('Backend API error:', error);
 
           // 如果後端 API 失敗，返回錯誤（不返回 mock 資料）
-          return {
+          return await logAndReturn(
+            {
             statusCode: 500,
             headers,
             body: JSON.stringify({
@@ -721,19 +982,54 @@ exports.handler = async (event, context) => {
               message:
                 'Unable to connect to backend service. Please try again later.',
             }),
-          };
+            },
+            {
+              Timestamp: new Date().toISOString(),
+              Method: httpMethod,
+              Path: path,
+              ClientIP: clientIP,
+              UserAgent: event.headers?.['user-agent'],
+              ApiKeyUsed: Boolean(apiKey),
+              ApiKeyValid: hasApiKey,
+              OrderNo: orderNo,
+              TrackingNo: trackingNo,
+              StatusCode: 500,
+              Success: false,
+              ErrorType: 'backend_unavailable',
+              ErrorMessage: error.message,
+              ResponseTimeMs: Date.now() - requestStart,
+            }
+          );
         }
       }
 
       // 如果沒有設定任何資料來源，返回錯誤
-      return {
+      return await logAndReturn(
+        {
         statusCode: 404,
         headers,
         body: JSON.stringify({
           success: false,
           message: 'No record found. Please verify the tracking number.',
         }),
-      };
+        },
+        {
+          Timestamp: new Date().toISOString(),
+          Method: httpMethod,
+          Path: path,
+          ClientIP: clientIP,
+          UserAgent: event.headers?.['user-agent'],
+          ApiKeyUsed: Boolean(apiKey),
+          ApiKeyValid: hasApiKey,
+          OrderNo: orderNo,
+          TrackingNo: trackingNo,
+          StatusCode: 404,
+          Success: false,
+          ErrorType: 'not_found',
+          ErrorMessage: 'No record found. Please verify the tracking number.',
+          ResponseTimeMs: Date.now() - requestStart,
+        }
+      );
     }
 
     // 處理 /api/tracking/timeline/:trackingNo（如果需要）
