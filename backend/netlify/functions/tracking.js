@@ -22,6 +22,14 @@ const Airtable = require('airtable');
 
 let logBase = null;
 
+// 一般診斷訊息僅在 DEBUG=true 時輸出，避免雜訊與機敏資訊外洩到 Netlify Function logs
+const DEBUG = process.env.DEBUG === 'true';
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
 function initLogBase() {
   if (!logBase) {
     const apiKey = process.env.AIRTABLE_API_KEY;
@@ -99,12 +107,12 @@ function loadEnvVars() {
   for (const envPath of envPaths) {
     if (fs.existsSync(envPath)) {
       require('dotenv').config({ path: envPath });
-      console.log('✅ 已載入 .env 檔案:', envPath);
-      console.log(
+      debugLog('✅ 已載入 .env 檔案:', envPath);
+      debugLog(
         '✅ AIRTABLE_API_KEY:',
         process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT SET'
       );
-      console.log(
+      debugLog(
         '✅ AIRTABLE_BASE_ID:',
         process.env.AIRTABLE_BASE_ID || 'NOT SET'
       );
@@ -112,7 +120,7 @@ function loadEnvVars() {
     }
   }
 
-  console.log('⚠️ 未找到 .env 檔案，嘗試的路徑:', envPaths);
+  debugLog('⚠️ 未找到 .env 檔案，嘗試的路徑:', envPaths);
 }
 
 // 初始化連接模組
@@ -120,13 +128,13 @@ function initConnections() {
   // 載入環境變數
   loadEnvVars();
 
-  console.log('🔧 initConnections() - 環境變數狀態:');
-  console.log(
+  debugLog('🔧 initConnections() - 環境變數狀態:');
+  debugLog(
     '  AIRTABLE_API_KEY:',
     process.env.AIRTABLE_API_KEY ? 'SET' : 'NOT SET'
   );
-  console.log('  AIRTABLE_BASE_ID:', process.env.AIRTABLE_BASE_ID || 'NOT SET');
-  console.log('  BACKEND_API_URL:', process.env.BACKEND_API_URL || 'NOT SET');
+  debugLog('  AIRTABLE_BASE_ID:', process.env.AIRTABLE_BASE_ID || 'NOT SET');
+  debugLog('  BACKEND_API_URL:', process.env.BACKEND_API_URL || 'NOT SET');
 
   // 優先使用 Airtable（如果已設定）
   if (
@@ -145,10 +153,10 @@ function initConnections() {
       try {
         // 先嘗試直接 require（最簡單的方式）
         airtableConnection = require('./airtable');
-        console.log('✅ 已載入 Airtable 連接模組（直接 require）');
+        debugLog('✅ 已載入 Airtable 連接模組（直接 require）');
       } catch (requireError) {
         // 如果直接 require 失敗，嘗試使用完整路徑
-        console.log(
+        debugLog(
           '⚠️ 直接 require 失敗，嘗試使用完整路徑:',
           requireError.message
         );
@@ -164,7 +172,7 @@ function initConnections() {
             delete require.cache[localPath];
           }
           airtableConnection = require(localPath);
-          console.log(
+          debugLog(
             '✅ 已載入 Airtable 連接模組（使用完整路徑）:',
             localPath
           );
@@ -173,7 +181,7 @@ function initConnections() {
             delete require.cache[fallbackPath];
           }
           airtableConnection = require(fallbackPath);
-          console.log(
+          debugLog(
             '✅ 已載入 Airtable 連接模組（使用備用路徑）:',
             fallbackPath
           );
@@ -188,23 +196,23 @@ function initConnections() {
           );
         }
       }
-      console.log('✅ 已載入 Airtable 連接模組');
-      console.log(
+      debugLog('✅ 已載入 Airtable 連接模組');
+      debugLog(
         '✅ AIRTABLE_SHIPMENTS_TABLE:',
         process.env.AIRTABLE_SHIPMENTS_TABLE || 'NOT SET'
       );
-      console.log('✅ airtableConnection 類型:', typeof airtableConnection);
-      console.log(
+      debugLog('✅ airtableConnection 類型:', typeof airtableConnection);
+      debugLog(
         '✅ airtableConnection 函數:',
         Object.keys(airtableConnection)
       );
     } catch (error) {
-      console.log('⚠️ Airtable 連接模組未找到:', error.message);
-      console.log('⚠️ Error stack:', error.stack);
+      debugLog('⚠️ Airtable 連接模組未找到:', error.message);
+      debugLog('⚠️ Error stack:', error.stack);
       airtableConnection = null; // 確保設為 null
     }
   } else {
-    console.log('⚠️ 不滿足 Airtable 條件，跳過載入');
+    debugLog('⚠️ 不滿足 Airtable 條件，跳過載入');
     airtableConnection = null; // 確保設為 null
   }
 
@@ -220,9 +228,9 @@ function initConnections() {
         '../../../database/connection'
       );
       dbConnection = require(mongoPath);
-      console.log('✅ 已載入 MongoDB 連接模組');
+      debugLog('✅ 已載入 MongoDB 連接模組');
     } catch (error) {
-      console.log('⚠️ MongoDB 連接模組未找到，將使用 API 模式');
+      debugLog('⚠️ MongoDB 連接模組未找到，將使用 API 模式');
     }
   }
 }
@@ -257,8 +265,8 @@ exports.handler = async (event, context) => {
   const { httpMethod, path, queryStringParameters, body } = event;
 
   // 記錄 path 以便調試
-  console.log('🔍 Event path:', path);
-  console.log('🔍 Event queryStringParameters:', queryStringParameters);
+  debugLog('🔍 Event path:', path);
+  debugLog('🔍 Event queryStringParameters:', queryStringParameters);
 
   try {
     // 處理 /api/debug-ip 端點（調試用，顯示 IP 和 rate limit 資訊）
@@ -321,37 +329,15 @@ exports.handler = async (event, context) => {
       const hasApiKey = apiKey ? validateApiKey(apiKey) : false;
       const requestStart = Date.now();
 
-      // 調試信息：顯示環境變數和 API Key 驗證狀態
-      console.log('🔍 API_KEYS env:', process.env.API_KEYS ? 'SET' : 'NOT SET');
-      console.log('🔍 API_KEYS value:', process.env.API_KEYS);
-      if (apiKey) {
-        console.log('🔑 API Key provided:', apiKey);
-        console.log('🔑 API Key valid:', hasApiKey);
-        console.log(
-          '🔑 Valid API Keys:',
-          process.env.API_KEYS
-            ? process.env.API_KEYS.split(',').map((k) => k.trim())
-            : 'none'
-        );
-      } else {
-        console.log('🔑 No API Key provided');
-      }
-
       // 獲取客戶端 IP 並檢查 Rate Limit（傳入 API Key 狀態）
       const clientIP = getClientIP(event);
-      console.log('🔍 Client IP:', clientIP);
-      console.log('🔍 Event headers (IP related):', {
-        'x-forwarded-for': event.headers?.['x-forwarded-for'],
-        'x-client-ip': event.headers?.['x-client-ip'],
-        'client-ip': event.headers?.['client-ip'],
-      });
 
       const rateLimitResult = checkRateLimit(clientIP, hasApiKey);
-      console.log(
+      debugLog(
         '🔍 Rate limit check result:',
         JSON.stringify(rateLimitResult, null, 2)
       );
-      console.log(
+      debugLog(
         '🔍 IP 是否為本地:',
         !clientIP ||
           clientIP === 'unknown' ||
@@ -362,7 +348,7 @@ exports.handler = async (event, context) => {
       );
 
       if (!rateLimitResult.allowed) {
-        console.log(
+        debugLog(
           '⚠️ Rate limit exceeded for IP:',
           clientIP,
           rateLimitResult
@@ -398,7 +384,7 @@ exports.handler = async (event, context) => {
         );
       }
 
-      console.log('✅ Rate limit check passed for IP:', clientIP);
+      debugLog('✅ Rate limit check passed for IP:', clientIP);
 
       let orderNo, trackingNo;
 
@@ -445,26 +431,26 @@ exports.handler = async (event, context) => {
         );
       }
 
-      console.log('🔍 Checking Airtable connection...');
-      console.log(
+      debugLog('🔍 Checking Airtable connection...');
+      debugLog(
         'airtableConnection:',
         airtableConnection ? 'SET' : 'NOT SET'
       );
-      console.log(
+      debugLog(
         'AIRTABLE_API_KEY:',
         process.env.AIRTABLE_API_KEY
           ? 'SET (' + process.env.AIRTABLE_API_KEY.substring(0, 15) + '...)'
           : 'NOT SET'
       );
-      console.log(
+      debugLog(
         'AIRTABLE_BASE_ID:',
         process.env.AIRTABLE_BASE_ID || 'NOT SET'
       );
-      console.log(
+      debugLog(
         'AIRTABLE_SHIPMENTS_TABLE:',
         process.env.AIRTABLE_SHIPMENTS_TABLE || 'NOT SET'
       );
-      console.log('BACKEND_API_URL:', process.env.BACKEND_API_URL || 'NOT SET');
+      debugLog('BACKEND_API_URL:', process.env.BACKEND_API_URL || 'NOT SET');
 
       // 如果連接模組未初始化，重新初始化（因為環境變數可能剛載入）
       if (
@@ -484,12 +470,12 @@ exports.handler = async (event, context) => {
           try {
             // 先嘗試直接 require（最簡單的方式）
             airtableConnection = require('./airtable');
-            console.log(
+            debugLog(
               '✅ 已載入 Airtable 連接模組（在 handler 中，直接 require）'
             );
           } catch (requireError) {
             // 如果直接 require 失敗，嘗試使用完整路徑
-            console.log(
+            debugLog(
               '⚠️ 直接 require 失敗，嘗試使用完整路徑:',
               requireError.message
             );
@@ -505,7 +491,7 @@ exports.handler = async (event, context) => {
                 delete require.cache[localPath];
               }
               airtableConnection = require(localPath);
-              console.log(
+              debugLog(
                 '✅ 已載入 Airtable 連接模組（在 handler 中，使用完整路徑）:',
                 localPath
               );
@@ -514,7 +500,7 @@ exports.handler = async (event, context) => {
                 delete require.cache[fallbackPath];
               }
               airtableConnection = require(fallbackPath);
-              console.log(
+              debugLog(
                 '✅ 已載入 Airtable 連接模組（在 handler 中，使用備用路徑）:',
                 fallbackPath
               );
@@ -529,10 +515,10 @@ exports.handler = async (event, context) => {
               );
             }
           }
-          console.log('✅ 已載入 Airtable 連接模組（在 handler 中）');
+          debugLog('✅ 已載入 Airtable 連接模組（在 handler 中）');
         } catch (error) {
-          console.log('⚠️ Airtable 連接模組載入失敗:', error.message);
-          console.log('⚠️ Error stack:', error.stack);
+          debugLog('⚠️ Airtable 連接模組載入失敗:', error.message);
+          debugLog('⚠️ Error stack:', error.stack);
         }
       }
 
@@ -541,28 +527,28 @@ exports.handler = async (event, context) => {
         process.env.AIRTABLE_API_KEY &&
         process.env.AIRTABLE_BASE_ID &&
         !process.env.BACKEND_API_URL;
-      console.log('hasAirtableConfig:', hasAirtableConfig);
-      console.log(
+      debugLog('hasAirtableConfig:', hasAirtableConfig);
+      debugLog(
         'airtableConnection after check:',
         airtableConnection ? 'SET' : 'NOT SET'
       );
 
       if (airtableConnection && hasAirtableConfig) {
         try {
-          console.log('✅ Using Airtable connection');
-          console.log('🔍 Querying:', orderNo, trackingNo);
+          debugLog('✅ Using Airtable connection');
+          debugLog('🔍 Querying:', orderNo, trackingNo);
           const { findShipment, findTimeline } = airtableConnection;
 
           // 查詢貨件資料
           let shipment;
           try {
             shipment = await findShipment(orderNo, trackingNo);
-            console.log(
+            debugLog(
               '📦 Shipment result:',
               shipment ? 'Found' : 'Not found'
             );
             if (shipment) {
-              console.log('📦 Shipment details:', {
+              debugLog('📦 Shipment details:', {
                 orderNo: shipment.orderNo,
                 trackingNo: shipment.trackingNo,
                 origin: shipment.origin,
@@ -602,7 +588,7 @@ exports.handler = async (event, context) => {
           }
 
           if (!shipment) {
-            console.log('⚠️ No shipment found for:', orderNo, trackingNo);
+            debugLog('⚠️ No shipment found for:', orderNo, trackingNo);
             return await logAndReturn(
               {
               statusCode: 404,
@@ -848,25 +834,19 @@ exports.handler = async (event, context) => {
 
       if (backendApiUrl) {
         try {
-          // 構建後端 API URL
+          // 構建後端 API URL（API Key 透過 Authorization header 傳遞，不放入 URL）
           const apiKey =
             queryStringParameters?.apiKey || process.env.BACKEND_API_KEY;
-          let backendUrl = `${backendApiUrl}/api/tracking?orderNo=${encodeURIComponent(
+          const backendUrl = `${backendApiUrl}/api/tracking?orderNo=${encodeURIComponent(
             orderNo
           )}&trackingNo=${encodeURIComponent(trackingNo)}`;
-
-          if (apiKey) {
-            backendUrl += `&apiKey=${encodeURIComponent(apiKey)}`;
-          }
 
           // 呼叫後端 API
           const backendResponse = await fetch(backendUrl, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              ...(process.env.BACKEND_API_KEY && {
-                Authorization: `Bearer ${process.env.BACKEND_API_KEY}`,
-              }),
+              ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
             },
           });
 

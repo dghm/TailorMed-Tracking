@@ -270,20 +270,20 @@ html(lang="en")
           const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
           const apiBaseUrl = isLocalhost ? 'http://localhost:3001/api' : '/api';
           
-          // Build API URL, append API Key if available
-          let apiUrl = `${apiBaseUrl}/tracking?orderNo=${encodeURIComponent(orderNo)}&trackingNo=${encodeURIComponent(trackingNo)}`;
+          // Build API URL; API Key is sent via header, not the URL
+          const apiUrl = `${apiBaseUrl}/tracking?orderNo=${encodeURIComponent(orderNo)}&trackingNo=${encodeURIComponent(trackingNo)}`;
+          const fetchHeaders = {};
           if (apiKey) {
-            apiUrl += `&apiKey=${encodeURIComponent(apiKey)}`;
+            fetchHeaders['X-API-Key'] = apiKey;
           }
-          
-          console.log('🔍 API URL:', apiUrl);
-          
+
           // 添加超時設置（30秒）
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
           
           try {
             const response = await fetch(apiUrl, {
+              headers: fetchHeaders,
               signal: controller.signal
             });
             

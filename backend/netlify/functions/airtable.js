@@ -1,5 +1,12 @@
 // Airtable 資料庫連接配置
 
+const DEBUG = process.env.DEBUG === 'true';
+function debugLog(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
 // 載入環境變數（從 backend 目錄的 .env 檔案，或從 repository root）
 (function loadEnvVars() {
   const path = require('path');
@@ -14,12 +21,12 @@
   for (const envPath of envPaths) {
     if (fs.existsSync(envPath)) {
       require('dotenv').config({ path: envPath });
-      console.log('✅ Airtable module: 已載入 .env 檔案:', envPath);
+      debugLog('✅ Airtable module: 已載入 .env 檔案:', envPath);
       return;
     }
   }
 
-  console.log('⚠️ Airtable module: 未找到 .env 檔案');
+  debugLog('⚠️ Airtable module: 未找到 .env 檔案');
 })();
 
 const Airtable = require('airtable');
@@ -39,7 +46,7 @@ function initAirtable() {
     }
 
     base = new Airtable({ apiKey }).base(baseId);
-    console.log('✅ 已連接到 Airtable Base:', baseId);
+    debugLog('✅ 已連接到 Airtable Base:', baseId);
   }
 
   return base;
@@ -168,7 +175,7 @@ async function findShipment(orderNo, trackingNo) {
           .firstPage();
 
         if (records.length > 0) {
-          console.log(`✅ 使用欄位名稱: ${jobField}, ${trackingField}`);
+          debugLog(`✅ 使用欄位名稱: ${jobField}, ${trackingField}`);
           break;
         }
       } catch (error) {
@@ -378,7 +385,7 @@ async function findTimeline(trackingNo, shipmentFields = null) {
       }
     } catch (error) {
       // Timeline 表格不存在或查詢失敗，繼續使用 Tracking 表格的日期欄位
-      console.log(
+      debugLog(
         '⚠️ Timeline 表格不存在或查詢失敗，使用 Tracking 表格的日期欄位'
       );
     }
@@ -769,8 +776,8 @@ async function testConnection() {
       .select({ maxRecords: 1 })
       .firstPage();
 
-    console.log('✅ Airtable 連接成功');
-    console.log(`✅ 找到 ${records.length} 筆記錄（測試用）`);
+    debugLog('✅ Airtable 連接成功');
+    debugLog(`✅ 找到 ${records.length} 筆記錄（測試用）`);
 
     return true;
   } catch (error) {

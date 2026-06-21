@@ -40,10 +40,11 @@ curl -H "X-API-Key: YOUR_API_KEY" \
   "http://localhost:8888/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0"
 ```
 
-#### 方式 B: Query Parameter
+#### 方式 B: Query Parameter（不建議）
 ```bash
 curl "http://localhost:8888/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0&apiKey=YOUR_API_KEY"
 ```
+> ⚠️ Query Parameter 會被記錄在伺服器/瀏覽器歷史紀錄中，僅供本機除錯使用，正式環境請改用 Header 或 POST Body。
 
 #### 方式 C: POST Body
 ```bash
@@ -64,11 +65,7 @@ http://localhost:8888/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0&apiKey=Y
 
 ### 檢查 Console 日誌
 
-當使用 API Key 時，Netlify dev 終端會顯示：
-```
-🔑 API Key provided: abc12345...
-🔑 API Key valid: true
-```
+正式環境預設不會印出 API Key 相關除錯訊息（避免外洩）。若需要在本機除錯時查看狀態，可在 `.env` 設定 `DEBUG=true` 後重啟 `netlify dev`。
 
 ### 測試限制差異
 
@@ -89,7 +86,7 @@ fetch('/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0', {
 .then(response => response.json())
 .then(data => console.log(data));
 
-// 方式 2: 使用 Query Parameter
+// 方式 2: 使用 Query Parameter（不建議，僅供本機除錯）
 fetch('/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0&apiKey=YOUR_API_KEY')
 .then(response => response.json())
 .then(data => console.log(data));
@@ -116,7 +113,7 @@ fetch('/api/tracking', {
 **A**: 必須重啟 `netlify dev` 才能載入新的環境變數。
 
 ### Q: 如何確認 API Key 是否正確？
-**A**: 檢查 Netlify dev 終端的日誌，應該看到 `🔑 API Key valid: true`
+**A**: 在 `.env` 設定 `DEBUG=true` 後重啟 `netlify dev`，即可在終端看到驗證狀態的除錯訊息。
 
 ### Q: API Key 可以包含特殊字符嗎？
 **A**: 可以，但建議使用字母、數字和連字符（-）或下劃線（_）

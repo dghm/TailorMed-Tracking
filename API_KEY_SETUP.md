@@ -33,10 +33,11 @@ curl -H "X-API-Key: your-api-key" \
   "https://your-domain.com/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0"
 ```
 
-### 方式 2: Query Parameter
+### 方式 2: Query Parameter（不建議，正式環境請避免）
 ```bash
 curl "https://your-domain.com/api/tracking?orderNo=TM111700&trackingNo=VIWDWDV0&apiKey=your-api-key"
 ```
+> ⚠️ API Key 會出現在 URL 中，可能被伺服器存取日誌或瀏覽器歷史紀錄到，僅供本機除錯使用。
 
 ### 方式 3: POST Body（僅 POST 請求）
 ```bash
