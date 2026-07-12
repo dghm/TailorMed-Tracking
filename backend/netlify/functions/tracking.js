@@ -20,8 +20,6 @@ const { checkRateLimit } = require('./rateLimiter');
 const { validateApiKey, extractApiKey } = require('./apiKeyValidator');
 const Airtable = require('airtable');
 
-let logBase = null;
-
 // 一般診斷訊息僅在 DEBUG=true 時輸出，避免雜訊與機敏資訊外洩到 Netlify Function logs
 const DEBUG = process.env.DEBUG === 'true';
 function debugLog(...args) {
@@ -30,37 +28,21 @@ function debugLog(...args) {
   }
 }
 
-function initLogBase() {
-  if (!logBase) {
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    if (!apiKey || !baseId) {
-      throw new Error('Missing Airtable API Key/Base ID for logging');
-    }
-    logBase = new Airtable({ apiKey }).base(baseId);
-  }
-  return logBase;
-}
+const { getStore } = require('@netlify/blobs');
 
-function buildLogFields(payload) {
-  const fields = {};
-  Object.entries(payload).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      fields[key] = value;
-    }
-  });
-  return fields;
+function todayKey() {
+  return `tracking-logs/${new Date().toISOString().slice(0, 10)}`;
 }
 
 async function logTrackingRequest(logData) {
   if (process.env.ENABLE_TRACKING_LOGS === 'false') return;
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) return;
-
-  const tableName = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
   try {
-    const base = initLogBase();
-    const fields = buildLogFields(logData);
-    await base(tableName).create([{ fields }]);
+    const store = getStore('tracking-logs');
+    const key = todayKey();
+    const existing = await store.get(key, { type: 'json' }).catch(() => []);
+    const logs = Array.isArray(existing) ? existing : [];
+    logs.push(logData);
+    await store.setJSON(key, logs);
   } catch (error) {
     console.warn('⚠️ Tracking log write failed:', error.message);
   }
@@ -630,14 +612,14 @@ exports.handler = async (event, context) => {
               status: shipment.status || 'pending',
               origin: shipment.origin || '',
               destination: shipment.destination || '',
-              originDestination: shipment.originDestination || '', // 包含 Origin/Destination 欄位（直接顯示資料庫中的值）
+              originDestination: shipment.originDestination || '',
               packageCount: shipment.packageCount || 1,
               weight: shipment.weight || '',
               eta: shipment.eta || '',
               invoiceNo: shipment.invoiceNo || '',
               mawb: shipment.mawb || '',
               lastUpdate: shipment.lastUpdate || '',
-              transportType: shipment.transportType || '', // 包含 Transport Type
+              transportType: shipment.transportType || '',
               timeline: timeline.map((item) => ({
                 step: item.step,
                 title: item.title,
@@ -645,7 +627,7 @@ exports.handler = async (event, context) => {
                 status: item.status || 'pending',
                 isEvent: item.isEvent || false,
                 date: item.date,
-                isOrderCompleted: item.isOrderCompleted || false, // 包含訂單完成狀態
+                isOrderCompleted: item.isOrderCompleted || false,
               })),
             },
           };

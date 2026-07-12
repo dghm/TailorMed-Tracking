@@ -1,12 +1,11 @@
 /**
  * Netlify Function: /api/logs
- * 讀取 Airtable TrackingLogs，供 Dashboard 顯示真實查詢記錄
+ * 從 Netlify Blob 讀取查詢記錄，供 Dashboard 顯示
  */
 
-const Airtable = require('airtable');
+const { getStore } = require('@netlify/blobs');
 
 const DASHBOARD_KEY = process.env.DASHBOARD_KEY;
-const TABLE_NAME = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
 
 function corsHeaders() {
   return {
@@ -21,12 +20,22 @@ function json(statusCode, body) {
   return { statusCode, headers: corsHeaders(), body: JSON.stringify(body) };
 }
 
+// 產生日期 key 列表（從 N 天前到今天）
+function dateKeys(days) {
+  const keys = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    keys.push(`tracking-logs/${d.toISOString().slice(0, 10)}`);
+  }
+  return keys;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: corsHeaders(), body: '' };
   }
 
-  // 密碼保護（如果有設定 DASHBOARD_KEY）
   if (DASHBOARD_KEY) {
     const provided =
       event.headers?.['x-dashboard-key'] ||
@@ -36,84 +45,33 @@ exports.handler = async (event) => {
     }
   }
 
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return json(500, { success: false, error: 'Airtable not configured' });
-  }
-
   try {
-    const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
-      process.env.AIRTABLE_BASE_ID
-    );
-
-    const { dateRange = 'week', status = 'all', pageSize = '100', offset } =
+    const { dateRange = 'week', status = 'all' } =
       event.queryStringParameters || {};
 
-    // 建立日期過濾條件
-    let filterParts = [];
-    const now = new Date();
+    const daysToFetch =
+      dateRange === 'today' ? 1 : dateRange === 'week' ? 7 : 30;
 
-    if (dateRange === 'today') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      filterParts.push(`IS_AFTER({Timestamp}, '${start}')`);
-    } else if (dateRange === 'week') {
-      const start = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-      filterParts.push(`IS_AFTER({Timestamp}, '${start}')`);
-    } else if (dateRange === 'month') {
-      const start = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
-      filterParts.push(`IS_AFTER({Timestamp}, '${start}')`);
-    }
+    const store = getStore('tracking-logs');
+    const keys = dateKeys(daysToFetch);
+
+    // 並行讀取所有日期的 Blob
+    const results = await Promise.all(
+      keys.map((key) => store.get(key, { type: 'json' }).catch(() => []))
+    );
+
+    let records = results
+      .flat()
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.Timestamp) - new Date(a.Timestamp));
 
     if (status === 'success') {
-      filterParts.push(`{Success} = TRUE()`);
+      records = records.filter((r) => r.Success);
     } else if (status === 'error') {
-      filterParts.push(`{Success} = FALSE()`);
+      records = records.filter((r) => !r.Success);
     }
 
-    const filterByFormula =
-      filterParts.length > 1
-        ? `AND(${filterParts.join(', ')})`
-        : filterParts[0] || '';
-
-    const queryOptions = {
-      sort: [{ field: 'Timestamp', direction: 'desc' }],
-      maxRecords: parseInt(pageSize, 10),
-      fields: [
-        'Timestamp', 'Method', 'OrderNo', 'TrackingNo',
-        'StatusCode', 'Success', 'ResponseTimeMs',
-        'ErrorType', 'ErrorMessage', 'ClientIP', 'Path',
-      ],
-    };
-    if (filterByFormula) queryOptions.filterByFormula = filterByFormula;
-    if (offset) queryOptions.offset = offset;
-
-    const records = [];
-    let nextOffset = null;
-
-    await new Promise((resolve, reject) => {
-      base(TABLE_NAME)
-        .select(queryOptions)
-        .eachPage(
-          (page, fetchNextPage) => {
-            page.forEach((record) => {
-              records.push({ id: record.id, ...record.fields });
-            });
-            // 只取第一頁
-            nextOffset = page.length === parseInt(pageSize, 10) ? 'has_more' : null;
-            resolve();
-          },
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-    });
-
-    return json(200, {
-      success: true,
-      records,
-      total: records.length,
-      nextOffset,
-    });
+    return json(200, { success: true, records, total: records.length });
   } catch (error) {
     console.error('logs function error:', error.message);
     return json(500, { success: false, error: error.message });
