@@ -18,8 +18,6 @@
 [functions]
   # 使用 esbuild 打包，確保所有依賴都被包含
   node_bundler = "esbuild"
-  # @netlify/blobs 是 Netlify 內建套件，不需要打包進 bundle
-  external_node_modules = ["@netlify/blobs"]
 
 # 環境變數（生產環境在 Netlify Dashboard 設定）
 # 本地開發時從 .env 檔案讀取（backend/.env）
