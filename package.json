@@ -6,7 +6,6 @@
     "build": "node compile.js"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.9",
     "airtable": "^0.12.2",
     "dotenv": "^16.3.1",
     "pug": "^3.0.2",

@@ -9,7 +9,6 @@
     "test-airtable": "node scripts/test-airtable.js"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.9",
     "airtable": "^0.12.2",
     "dotenv": "^16.3.1",
     "mongodb": "^6.0.0"
