@@ -52,7 +52,7 @@ async function logTrackingRequest(logData) {
     await base(tableName).create([
       {
         fields: {
-          Timestamp: logData.Timestamp,
+          // Timestamp 為 Airtable「建立時間」自動欄位，不可寫入，建立記錄時自動填入
           OrderNo: logData.OrderNo || '',
           TrackingNo: logData.TrackingNo || '',
           StatusCode: String(logData.StatusCode || ''),
@@ -343,7 +343,6 @@ exports.handler = async (event, context) => {
           const created = await base(tableName).create([
             {
               fields: {
-                Timestamp: new Date().toISOString(),
                 OrderNo: 'DEBUG',
                 TrackingNo: 'DEBUG',
                 StatusCode: '200',
