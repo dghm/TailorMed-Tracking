@@ -328,6 +328,55 @@ exports.handler = async (event, context) => {
 
     // 處理 /api/debug-ip 端點（調試用，顯示 IP 和 rate limit 資訊）
     if (path.includes('/api/debug-ip') || path.includes('/debug-ip')) {
+      // ?write=1 → 試寫一筆到 TrackingLogs 並回傳真實結果（臨時診斷）
+      if (queryStringParameters?.write === '1') {
+        const tableName = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
+        const diag = {
+          hasApiKey: Boolean(process.env.AIRTABLE_API_KEY),
+          hasBaseId: Boolean(process.env.AIRTABLE_BASE_ID),
+          baseId: process.env.AIRTABLE_BASE_ID || null,
+          tableName,
+          enableFlag: process.env.ENABLE_TRACKING_LOGS ?? '(unset)',
+        };
+        try {
+          const base = initLogBase();
+          const created = await base(tableName).create([
+            {
+              fields: {
+                Timestamp: new Date().toISOString(),
+                OrderNo: 'DEBUG',
+                TrackingNo: 'DEBUG',
+                StatusCode: '200',
+                Success: 'true',
+                Method: 'DEBUG',
+                Path: '/debug-ip?write=1',
+              },
+            },
+          ]);
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({
+              success: true,
+              message: 'Write OK',
+              recordId: created?.[0]?.id || null,
+              diag,
+            }),
+          };
+        } catch (error) {
+          return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({
+              success: false,
+              error: error.message,
+              statusCode: error.statusCode,
+              diag,
+            }),
+          };
+        }
+      }
+
       const clientIP = getClientIP(event);
       const rateLimitResult = checkRateLimit(clientIP);
       const isLocalIP =
