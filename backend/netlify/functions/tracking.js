@@ -42,16 +42,6 @@ function initLogBase() {
   return logBase;
 }
 
-function buildLogFields(payload) {
-  const fields = {};
-  Object.entries(payload).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      fields[key] = value;
-    }
-  });
-  return fields;
-}
-
 async function logTrackingRequest(logData) {
   if (process.env.ENABLE_TRACKING_LOGS === 'false') return;
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) return;
@@ -59,10 +49,28 @@ async function logTrackingRequest(logData) {
   const tableName = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
   try {
     const base = initLogBase();
-    const fields = buildLogFields(logData);
-    await base(tableName).create([{ fields }]);
+    await base(tableName).create([
+      {
+        fields: {
+          Timestamp: logData.Timestamp,
+          OrderNo: logData.OrderNo || '',
+          TrackingNo: logData.TrackingNo || '',
+          StatusCode: String(logData.StatusCode || ''),
+          Success: String(logData.Success ?? ''),
+          ErrorType: logData.ErrorType || '',
+          ErrorMessage: logData.ErrorMessage || '',
+          ResponseTimeMs: String(logData.ResponseTimeMs || ''),
+          ClientIP: logData.ClientIP || '',
+          UserAgent: logData.UserAgent || '',
+          ApiKeyUsed: String(logData.ApiKeyUsed ?? ''),
+          ApiKeyValid: String(logData.ApiKeyValid ?? ''),
+          Method: logData.Method || '',
+          Path: logData.Path || '',
+        },
+      },
+    ]);
   } catch (error) {
-    console.warn('⚠️ Tracking log write failed:', error.message);
+    console.warn('⚠️ TrackingLog write failed:', error.message);
   }
 }
 
