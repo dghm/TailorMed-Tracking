@@ -169,7 +169,7 @@ async function findShipment(orderNo, trackingNo) {
       try {
         records = await airtableBase(tableName)
           .select({
-            filterByFormula: `AND({${jobField}} = "${orderNo.toUpperCase()}", {${trackingField}} = "${trackingNo.toUpperCase()}")`,
+            filterByFormula: `AND(UPPER(TRIM({${jobField}} & "")) = "${orderNo.trim().toUpperCase()}", UPPER(TRIM({${trackingField}} & "")) = "${trackingNo.trim().toUpperCase()}")`,
             maxRecords: 1,
           })
           .firstPage();
@@ -340,7 +340,7 @@ async function findTimeline(trackingNo, shipmentFields = null) {
     try {
       const records = await airtableBase(tableName)
         .select({
-          filterByFormula: `OR({Tracking No.} = "${trackingNo.toUpperCase()}", {Tracking No} = "${trackingNo.toUpperCase()}")`,
+          filterByFormula: `OR(UPPER(TRIM({Tracking No.} & "")) = "${trackingNo.trim().toUpperCase()}", UPPER(TRIM({Tracking No} & "")) = "${trackingNo.trim().toUpperCase()}")`,
           sort: [
             { field: 'Date', direction: 'asc' },
             { field: 'Time', direction: 'asc' },

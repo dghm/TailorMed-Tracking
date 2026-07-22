@@ -28,9 +28,50 @@ function debugLog(...args) {
   }
 }
 
-// 查詢記錄（暫時停用，未來可接 Airtable TrackingLogs 或其他儲存）
+let logBase = null;
+
+function initLogBase() {
+  if (!logBase) {
+    const apiKey = process.env.AIRTABLE_API_KEY;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    if (!apiKey || !baseId) {
+      throw new Error('Missing Airtable API Key/Base ID for logging');
+    }
+    logBase = new Airtable({ apiKey }).base(baseId);
+  }
+  return logBase;
+}
+
+// 將查詢記錄寫入 Airtable TrackingLogs 表（Timestamp 由 Airtable 建立時間自動填入）
 async function logTrackingRequest(logData) {
-  // Monitor 功能暫停，等待後續實作
+  if (process.env.ENABLE_TRACKING_LOGS === 'false') return;
+  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) return;
+
+  const tableName = process.env.AIRTABLE_LOGS_TABLE || 'TrackingLogs';
+  try {
+    const base = initLogBase();
+    await base(tableName).create([
+      {
+        fields: {
+          OrderNo: logData.OrderNo || '',
+          TrackingNo: logData.TrackingNo || '',
+          StatusCode: String(logData.StatusCode || ''),
+          Success: String(logData.Success ?? ''),
+          ErrorType: logData.ErrorType || '',
+          ErrorMessage: logData.ErrorMessage || '',
+          ResponseTimeMs: String(logData.ResponseTimeMs || ''),
+          ClientIP: logData.ClientIP || '',
+          UserAgent: logData.UserAgent || '',
+          ApiKeyUsed: String(logData.ApiKeyUsed ?? ''),
+          ApiKeyValid: String(logData.ApiKeyValid ?? ''),
+          Method: logData.Method || '',
+          Path: logData.Path || '',
+        },
+      },
+    ]);
+  } catch (error) {
+    console.warn('⚠️ TrackingLog write failed:', error.message);
+  }
 }
 
 async function logAndReturn(response, logData) {
