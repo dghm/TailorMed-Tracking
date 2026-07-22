@@ -212,7 +212,7 @@
     loading: 'Retrieving your shipment status. Just a moment...',
     notFound:
       "We couldn't find any shipment that matches the information provided.\n\nPlease double-check your Job No. and Tracking No. and try again.",
-    error: '服務暫時無法使用，稍候再試或聯絡客服人員。',
+    error: '服務暫時無法使用，稍後再試或聯絡客服人員。',
     timeout:
       "We couldn't find any shipment that matches the information provided.\n\nPlease double-check your Job No. and Tracking No. and try again.",
   };
@@ -249,7 +249,7 @@
     return `${day}/${month}/${year}`;
   }
 
-  // 格式化日期時間為歐洲格式 DD/MM/YYYY HH:MM
+  // 格式化日期時間為歐式格式 DD/MM/YYYY HH:MM
   function formatDateTimeToDDMMYYYYHHMM(value) {
     if (!value) return '—';
 
@@ -489,7 +489,7 @@
       .join(' ')
       .trim();
 
-    // 格式化 Last Update 為歐洲格式 DD/MM/YYYY HH:MM
+    // 格式化 Last Update 為歐式格式 DD/MM/YYYY HH:MM
     const lastUpdateRaw =
       combinedTimelineDateTime || shipmentData.lastUpdate || '';
     const lastUpdateText = lastUpdateRaw
@@ -1208,17 +1208,11 @@
             eventElement.dataset.eventType = eventItem.eventType;
           }
           
-          // 根據事件類型設定 data-step
-          // Dry Ice Refilled(Terminal) 應該在 In Transit (step 4) 之後
-          // Dry Ice Refilled 應該在 Destination Customs Process (step 5) 之後
-          // 不管 Dry Ice Refilled(Terminal) 是否被勾選，Dry Ice Refilled 都應該顯示在 step 5 之後
           if (eventItem.eventType === 'dryice-terminal') {
             eventElement.dataset.step = '4';
           } else if (eventItem.eventType === 'dryice-standard') {
-            // Dry Ice Refilled 始終顯示在 Destination Customs Process (step 5) 之後
             eventElement.dataset.step = '5';
           } else {
-            // 對於其他事件，嘗試根據事件在 timeline 中的實際位置來設定
             const eventIndex = timeline.findIndex((item) => 
               item.isEvent && 
               item.title === eventItem.title &&
@@ -1227,7 +1221,6 @@
             );
             
             if (eventIndex >= 0) {
-              // 找到事件前面的最後一個步驟
               let previousStep = null;
               for (let i = eventIndex - 1; i >= 0; i--) {
                 if (!timeline[i].isEvent && timeline[i].step !== null && timeline[i].step !== undefined) {
@@ -1276,7 +1269,6 @@
       }
     }
 
-    // 如果有 Dry Ice Event，添加時間軸圖示
     const hasDryIceEvent = dryIceEvents.length > 0;
     const primaryDryIceEvent = dryIceEvents[0];
     if (timelineVisual) {
@@ -1309,15 +1301,9 @@
       }
     }
 
-    // 顯示 feedback 區塊（當訂單完成時）
-    const feedbackSection = resultsPanel?.querySelector('.feedback-section');
-    if (feedbackSection) {
-      if (isOrderCompleted) {
-        feedbackSection.classList.remove('is-hidden');
-      } else {
-        feedbackSection.classList.add('is-hidden');
-      }
-    }
+    // feedback 區塊暫時停用（問卷未就緒），保持隱藏
+    // const feedbackSection = resultsPanel?.querySelector('.feedback-section');
+    // if (feedbackSection) { ... }
 
     // 隱藏 results-note（當訂單完成時，即 Shipment Delivered 已完成）
     const resultsNote = resultsPanel?.querySelector('.results-note');
