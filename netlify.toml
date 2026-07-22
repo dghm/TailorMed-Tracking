@@ -49,11 +49,6 @@
   status = 200
 
 [[redirects]]
-  from = "/api/debug-log"
-  to = "/.netlify/functions/tracking"
-  status = 200
-
-[[redirects]]
   from = "/design"
   to = "/design_ui.html"
   status = 200
